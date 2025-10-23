@@ -1,0 +1,316 @@
+---
+alwaysApply: true
+---
+
+# 📊 Test Data Management
+
+## 🎯 Fixture Strategy
+
+**Organized test data** with clear separation of concerns.
+
+### ✅ CORRECT - Fixture Organization
+```typescript
+// fixtures/users.json - User data
+{
+  "admin": { "email": "admin@test.com", "password": "Admin123!", "role": "admin" },
+  "user": { "email": "user@test.com", "password": "User123!", "role": "user" },
+  "guest": { "email": "guest@test.com", "password": "Guest123!", "role": "guest" }
+}
+
+// fixtures/products.json - Product data
+{
+  "validProduct": { "name": "Test Product", "price": 29.99, "category": "electronics" },
+  "invalidProduct": { "name": "", "price": -10, "category": "" }
+}
+
+// fixtures/environments.json - Environment-specific data
+{
+  "dev": { "baseUrl": "https://dev.example.com", "apiUrl": "https://api-dev.example.com" },
+  "staging": { "baseUrl": "https://staging.example.com", "apiUrl": "https://api-staging.example.com" }
+}
+```
+
+---
+
+## 📁 Fixture File Structure
+
+### Basic Fixtures
+```typescript
+// fixtures/users.json
+{
+  "validUser": {
+    "email": "test@example.com",
+    "password": "Test123!"
+  },
+  "adminUser": {
+    "email": "admin@example.com",
+    "password": "Admin123!"
+  }
+}
+
+// tests/e2e/auth/login.spec.ts
+import users from '@/fixtures/users.json';
+
+test('should login as valid user', async ({ page }) => {
+  const loginPage = new LoginPage(page);
+  await loginPage.goto();
+  await loginPage.login(users.validUser.email, users.validUser.password);
+  await expect(page).toHaveURL(/dashboard/);
+});
+```
+
+### Complex Fixtures
+```typescript
+// fixtures/test-data.json
+{
+  "loginScenarios": [
+    { "email": "valid@test.com", "password": "Valid123!", "expected": "success" },
+    { "email": "invalid@test.com", "password": "Wrong123!", "expected": "error" },
+    { "email": "", "password": "Valid123!", "expected": "validation" }
+  ],
+  "userRoles": [
+    { "role": "admin", "permissions": ["read", "write", "delete"] },
+    { "role": "user", "permissions": ["read"] },
+    { "role": "guest", "permissions": [] }
+  ]
+}
+```
+
+---
+
+## 🎯 Fixture Best Practices
+
+### 1. Clear Naming
+```typescript
+// ✅ CORRECT - Clear, descriptive names
+{
+  "validUser": { "email": "user@test.com", "password": "Valid123!" },
+  "invalidUser": { "email": "invalid@test.com", "password": "Wrong123!" },
+  "adminUser": { "email": "admin@test.com", "password": "Admin123!", "role": "admin" }
+}
+
+// ❌ WRONG - Unclear names
+{
+  "user1": { "email": "user@test.com", "password": "Valid123!" },
+  "user2": { "email": "invalid@test.com", "password": "Wrong123!" },
+  "user3": { "email": "admin@test.com", "password": "Admin123!" }
+}
+```
+
+### 2. Environment-Specific Data
+```typescript
+// fixtures/environments.json
+{
+  "dev": {
+    "baseUrl": "https://dev.example.com",
+    "apiUrl": "https://api-dev.example.com",
+    "testUser": { "email": "dev@test.com", "password": "Dev123!" }
+  },
+  "staging": {
+    "baseUrl": "https://staging.example.com",
+    "apiUrl": "https://api-staging.example.com",
+    "testUser": { "email": "staging@test.com", "password": "Staging123!" }
+  }
+}
+```
+
+### 3. Validation Data
+```typescript
+// fixtures/validation.json
+{
+  "emailValidation": {
+    "valid": ["test@example.com", "user.name@domain.co.uk", "test+tag@example.org"],
+    "invalid": ["invalid-email", "@domain.com", "test@", "test@domain"]
+  },
+  "passwordValidation": {
+    "valid": ["Password123!", "MySecure@Pass1", "Complex#Pass99"],
+    "invalid": ["123", "password", "PASSWORD", "Pass1"]
+  }
+}
+```
+
+---
+
+## 🔧 Fixture Utilities
+
+### Data Generator
+```typescript
+// support/utils/data-generator.ts
+export class DataGenerator {
+  static generateUser(overrides: Partial<User> = {}): User {
+    return {
+      email: `test${Date.now()}@example.com`,
+      password: 'Test123!',
+      firstName: 'Test',
+      lastName: 'User',
+      ...overrides
+    };
+  }
+
+  static generateProduct(overrides: Partial<Product> = {}): Product {
+    return {
+      name: `Test Product ${Date.now()}`,
+      price: 29.99,
+      category: 'electronics',
+      ...overrides
+    };
+  }
+
+  static generateRandomEmail(): string {
+    return `user${Math.random().toString(36).substr(2, 9)}@example.com`;
+  }
+}
+```
+
+### Fixture Loader
+```typescript
+// support/utils/fixture-loader.ts
+export class FixtureLoader {
+  static async loadFixture<T>(filename: string): Promise<T> {
+    const path = `./fixtures/${filename}`;
+    const data = await import(path);
+    return data.default;
+  }
+
+  static async loadUserData(): Promise<UserData> {
+    return this.loadFixture<UserData>('users.json');
+  }
+
+  static async loadProductData(): Promise<ProductData> {
+    return this.loadFixture<ProductData>('products.json');
+  }
+}
+```
+
+---
+
+## 📊 Data-Driven Testing with Fixtures
+
+### Parameterized Tests
+```typescript
+// tests/e2e/auth/login-parameterized.spec.ts
+import testData from '@/fixtures/test-data.json';
+
+test.describe('Login Parameterized Tests @ddt', () => {
+  for (const scenario of testData.loginScenarios) {
+    test(`should handle ${scenario.expected} for ${scenario.email || 'empty email'}`, async ({ page }) => {
+      const loginPage = new LoginPage(page);
+      await loginPage.goto();
+      await loginPage.login(scenario.email, scenario.password);
+      
+      if (scenario.expected === 'success') {
+        await expect(page).toHaveURL(/dashboard/);
+      } else {
+        await expect(loginPage.getErrorMessage()).toBeVisible();
+      }
+    });
+  }
+});
+```
+
+### Dynamic Test Data
+```typescript
+// tests/e2e/products/product-search.spec.ts
+import products from '@/fixtures/products.json';
+
+test.describe('Product Search @regression', () => {
+  for (const product of products.searchScenarios) {
+    test(`should search for ${product.category} products`, async ({ page }) => {
+      const searchPage = new SearchPage(page);
+      await searchPage.goto();
+      await searchPage.searchByCategory(product.category);
+      
+      await expect(searchPage.results).toHaveCount(product.expectedCount);
+      await expect(searchPage.categoryFilter).toHaveText(product.category);
+    });
+  }
+});
+```
+
+---
+
+## 🎯 Fixture Management Patterns
+
+### 1. Hierarchical Data
+```typescript
+// fixtures/complex-data.json
+{
+  "ecommerce": {
+    "users": {
+      "admin": { "email": "admin@shop.com", "role": "admin" },
+      "customer": { "email": "customer@shop.com", "role": "customer" }
+    },
+    "products": {
+      "electronics": [
+        { "name": "Laptop", "price": 999.99 },
+        { "name": "Phone", "price": 699.99 }
+      ],
+      "clothing": [
+        { "name": "Shirt", "price": 29.99 },
+        { "name": "Pants", "price": 49.99 }
+      ]
+    }
+  }
+}
+```
+
+### 2. Environment-Specific Fixtures
+```typescript
+// fixtures/env-specific.json
+{
+  "dev": {
+    "testUsers": [
+      { "email": "dev1@test.com", "password": "Dev123!" },
+      { "email": "dev2@test.com", "password": "Dev123!" }
+    ]
+  },
+  "staging": {
+    "testUsers": [
+      { "email": "staging1@test.com", "password": "Staging123!" },
+      { "email": "staging2@test.com", "password": "Staging123!" }
+    ]
+  }
+}
+```
+
+### 3. Conditional Data
+```typescript
+// support/utils/conditional-fixtures.ts
+export class ConditionalFixtures {
+  static getTestUser(environment: string): User {
+    const envData = require(`@/fixtures/env-specific.json`);
+    const users = envData[environment]?.testUsers || [];
+    return users[0] || { email: 'default@test.com', password: 'Default123!' };
+  }
+
+  static getApiUrl(environment: string): string {
+    const envData = require('@/fixtures/environments.json');
+    return envData[environment]?.apiUrl || 'https://api.example.com';
+  }
+}
+```
+
+---
+
+## 📋 Fixture Checklist
+
+### ✅ File Organization
+- [ ] **Clear naming** convention for fixture files
+- [ ] **Logical grouping** of related data
+- [ ] **Environment-specific** data separation
+- [ ] **Validation data** for edge cases
+- [ ] **Consistent structure** across all fixtures
+
+### ✅ Data Quality
+- [ ] **Realistic test data** that mirrors production
+- [ ] **Valid and invalid** data scenarios
+- [ ] **Edge cases** and boundary conditions
+- [ ] **No sensitive information** in fixtures
+- [ ] **Proper data types** and formats
+
+### ✅ Usage Patterns
+- [ ] **Import statements** with proper paths
+- [ ] **TypeScript types** for fixture data
+- [ ] **Data validation** in tests
+- [ ] **Cleanup procedures** for dynamic data
+- [ ] **Error handling** for missing fixtures

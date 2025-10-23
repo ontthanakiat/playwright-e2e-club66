@@ -1,0 +1,302 @@
+---
+alwaysApply: true
+---
+
+# 📦 Package.json Scripts
+
+## 🎯 Essential Test Scripts
+
+### ✅ CORRECT - Complete Script Configuration
+```json
+{
+  "scripts": {
+    "test": "playwright test",
+    "test:headed": "playwright test --headed",
+    "test:ui": "playwright test --ui",
+    "test:smoke": "playwright test --grep @smoke",
+    "test:api": "playwright test tests/api",
+    "test:e2e": "playwright test tests/e2e",
+    "test:visual": "playwright test tests/visual",
+    "test:staging": "BASE_ENV=staging playwright test",
+    "test:prod": "BASE_ENV=prod playwright test --grep @smoke",
+    "report": "playwright show-report",
+    "allure:generate": "allure generate allure-results --clean",
+    "allure:open": "allure open allure-report",
+    "lint": "eslint . --ext .ts",
+    "lint:fix": "eslint . --ext .ts --fix",
+    "format": "prettier --write \"**/*.{ts,json,md}\""
+  }
+}
+```
+
+---
+
+## 🔧 Environment-Specific Scripts
+
+### ✅ CORRECT - Environment Scripts
+```json
+{
+  "scripts": {
+    "test:dev": "BASE_ENV=dev playwright test",
+    "test:staging": "BASE_ENV=staging playwright test",
+    "test:prod": "BASE_ENV=prod playwright test --grep @smoke",
+    "test:local": "BASE_ENV=local playwright test",
+    "test:ci": "BASE_ENV=ci playwright test"
+  }
+}
+```
+
+### ✅ CORRECT - Browser-Specific Scripts
+```json
+{
+  "scripts": {
+    "test:chrome": "playwright test --project=chromium",
+    "test:firefox": "playwright test --project=firefox",
+    "test:safari": "playwright test --project=webkit",
+    "test:mobile": "playwright test --project=mobile",
+    "test:desktop": "playwright test --project=desktop"
+  }
+}
+```
+
+---
+
+## 🎯 Test Type Scripts
+
+### ✅ CORRECT - Test Type Scripts
+```json
+{
+  "scripts": {
+    "test:smoke": "playwright test --grep @smoke",
+    "test:regression": "playwright test --grep @regression",
+    "test:critical": "playwright test --grep @critical",
+    "test:api": "playwright test tests/api",
+    "test:e2e": "playwright test tests/e2e",
+    "test:visual": "playwright test tests/visual",
+    "test:accessibility": "playwright test tests/accessibility",
+    "test:performance": "playwright test tests/performance"
+  }
+}
+```
+
+### ✅ CORRECT - Debug Scripts
+```json
+{
+  "scripts": {
+    "test:debug": "playwright test --debug",
+    "test:headed": "playwright test --headed",
+    "test:ui": "playwright test --ui",
+    "test:trace": "playwright test --trace on",
+    "test:video": "playwright test --video on"
+  }
+}
+```
+
+---
+
+## 🔧 Reporting Scripts
+
+### ✅ CORRECT - Reporting Scripts
+```json
+{
+  "scripts": {
+    "report": "playwright show-report",
+    "report:open": "playwright show-report --host 0.0.0.0",
+    "report:serve": "playwright show-report --port 9323",
+    "allure:generate": "allure generate allure-results --clean",
+    "allure:open": "allure open allure-report",
+    "allure:serve": "allure serve allure-results"
+  }
+}
+```
+
+### ✅ CORRECT - Report Management
+```json
+{
+  "scripts": {
+    "report:clean": "rm -rf playwright-report allure-results allure-report",
+    "report:archive": "tar -czf reports-$(date +%Y%m%d-%H%M%S).tar.gz playwright-report allure-results",
+    "report:upload": "aws s3 sync playwright-report s3://test-reports/$(date +%Y%m%d)/"
+  }
+}
+```
+
+---
+
+## 🎯 Code Quality Scripts
+
+### ✅ CORRECT - Linting and Formatting
+```json
+{
+  "scripts": {
+    "lint": "eslint . --ext .ts",
+    "lint:fix": "eslint . --ext .ts --fix",
+    "lint:check": "eslint . --ext .ts --max-warnings 0",
+    "format": "prettier --write \"**/*.{ts,json,md}\"",
+    "format:check": "prettier --check \"**/*.{ts,json,md}\"",
+    "type-check": "tsc --noEmit"
+  }
+}
+```
+
+### ✅ CORRECT - Pre-commit Scripts
+```json
+{
+  "scripts": {
+    "pre-commit": "npm run lint:check && npm run format:check && npm run type-check",
+    "pre-push": "npm run test:smoke",
+    "pre-publish": "npm run test && npm run lint:check"
+  }
+}
+```
+
+---
+
+## 🔧 Utility Scripts
+
+### ✅ CORRECT - Setup Scripts
+```json
+{
+  "scripts": {
+    "setup": "npm install && npx playwright install",
+    "setup:ci": "npm ci && npx playwright install --with-deps",
+    "setup:dev": "npm install && npx playwright install && npm run setup:env",
+    "setup:env": "cp .env.example .env.dev"
+  }
+}
+```
+
+### ✅ CORRECT - Maintenance Scripts
+```json
+{
+  "scripts": {
+    "clean": "rm -rf test-results playwright-report allure-results",
+    "clean:all": "rm -rf node_modules test-results playwright-report allure-results",
+    "update": "npm update && npx playwright install",
+    "update:browsers": "npx playwright install"
+  }
+}
+```
+
+---
+
+## 🎯 CI/CD Scripts
+
+### ✅ CORRECT - CI/CD Scripts
+```json
+{
+  "scripts": {
+    "ci:test": "npm run test:smoke",
+    "ci:test:full": "npm run test",
+    "ci:test:api": "npm run test:api",
+    "ci:test:e2e": "npm run test:e2e",
+    "ci:report": "npm run report && npm run allure:generate"
+  }
+}
+```
+
+### ✅ CORRECT - Deployment Scripts
+```json
+{
+  "scripts": {
+    "deploy:test": "npm run test:staging && npm run report:upload",
+    "deploy:prod": "npm run test:prod && npm run report:upload",
+    "deploy:smoke": "npm run test:smoke && npm run report:upload"
+  }
+}
+```
+
+---
+
+## 🔧 Advanced Scripts
+
+### ✅ CORRECT - Parallel Execution Scripts
+```json
+{
+  "scripts": {
+    "test:parallel": "playwright test --workers=4",
+    "test:parallel:api": "playwright test tests/api --workers=2",
+    "test:parallel:e2e": "playwright test tests/e2e --workers=2"
+  }
+}
+```
+
+### ✅ CORRECT - Selective Testing Scripts
+```json
+{
+  "scripts": {
+    "test:changed": "playwright test --grep @changed",
+    "test:flaky": "playwright test --grep @flaky",
+    "test:stable": "playwright test --grep-invert @flaky",
+    "test:quick": "playwright test --grep @quick"
+  }
+}
+```
+
+---
+
+## 🎯 Script Best Practices
+
+### ✅ DO
+- **Use descriptive names** for all scripts
+- **Group related scripts** with prefixes
+- **Provide environment-specific** scripts
+- **Include debug and development** scripts
+- **Add reporting and cleanup** scripts
+- **Use consistent naming** conventions
+
+### ❌ DON'T
+```json
+// ❌ WRONG - Unclear script names
+{
+  "scripts": {
+    "test1": "playwright test",
+    "test2": "playwright test --headed",
+    "run": "playwright test --ui"
+  }
+}
+
+// ❌ WRONG - No environment scripts
+{
+  "scripts": {
+    "test": "playwright test"
+  }
+}
+```
+
+### ✅ CORRECT
+```json
+// ✅ CORRECT - Clear, descriptive script names
+{
+  "scripts": {
+    "test": "playwright test",
+    "test:headed": "playwright test --headed",
+    "test:ui": "playwright test --ui",
+    "test:staging": "BASE_ENV=staging playwright test",
+    "test:prod": "BASE_ENV=prod playwright test --grep @smoke"
+  }
+}
+```
+
+---
+
+## 📋 Scripts Checklist
+
+### ✅ Essential Scripts
+- [ ] **Basic test execution** (`test`, `test:headed`, `test:ui`)
+- [ ] **Environment-specific** scripts (`test:dev`, `test:staging`, `test:prod`)
+- [ ] **Test type scripts** (`test:smoke`, `test:api`, `test:e2e`)
+- [ ] **Debug scripts** (`test:debug`, `test:trace`, `test:video`)
+- [ ] **Reporting scripts** (`report`, `allure:generate`, `allure:open`)
+
+### ✅ Code Quality Scripts
+- [ ] **Linting scripts** (`lint`, `lint:fix`, `lint:check`)
+- [ ] **Formatting scripts** (`format`, `format:check`)
+- [ ] **Type checking** (`type-check`)
+- [ ] **Pre-commit hooks** (`pre-commit`, `pre-push`)
+
+### ✅ Utility Scripts
+- [ ] **Setup scripts** (`setup`, `setup:ci`, `setup:dev`)
+- [ ] **Cleanup scripts** (`clean`, `clean:all`)
+- [ ] **Update scripts** (`update`, `update:browsers`)
+- [ ] **Maintenance scripts** (`clean`, `archive`, `upload`)

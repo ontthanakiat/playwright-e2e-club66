@@ -1,0 +1,235 @@
+---
+alwaysApply: true
+---
+
+# 🔧 Configuration Rules
+
+## 🎯 Environment & TypeScript Configuration
+
+### Playwright Configuration
+```typescript
+// playwright.config.ts - ALWAYS use this pattern
+import { defineConfig } from '@playwright/test';
+import dotenv from 'dotenv';
+
+const ENV = process.env.BASE_ENV || 'dev';
+dotenv.config({ path: `.env.${ENV}` });
+
+export default defineConfig({
+  use: {
+    baseURL: process.env.BASE_URL,
+    screenshot: 'only-on-failure',
+    video: 'retain-on-failure',
+    trace: 'retain-on-failure',
+  },
+  timeout: 30000,
+  retries: process.env.CI ? 2 : 0,
+  workers: process.env.CI ? 2 : undefined,
+});
+```
+
+### TypeScript Configuration for Decorators
+```json
+// tsconfig.json - Enable decorators
+{
+  "compilerOptions": {
+    "experimentalDecorators": true,
+    "useDefineForClassFields": false,
+    "target": "ES2022",
+    "module": "commonjs"
+  }
+}
+```
+
+---
+
+## 🌍 Environment Best Practices
+
+### ✅ Environment Management
+- **Default**: `dev` environment
+- **Switch**: `BASE_ENV=staging npm run test`
+- **Never hardcode URLs** - always use `process.env.BASE_URL`
+- **Store credentials** in `.env` files (git-ignored)
+- **Use `.env.example`** as template for team
+
+### Environment Files Structure
+```bash
+# .env.example (committed)
+BASE_URL=https://example.com
+API_URL=https://api.example.com
+TEST_EMAIL=your-email@example.com
+TEST_PASSWORD=your-password
+
+# .env.dev (git-ignored)
+BASE_URL=https://dev.example.com
+API_URL=https://api-dev.example.com
+TEST_EMAIL=dev@example.com
+TEST_PASSWORD=DevPassword123!
+
+# .env.staging (git-ignored)
+BASE_URL=https://staging.example.com
+API_URL=https://api-staging.example.com
+TEST_EMAIL=staging@example.com
+TEST_PASSWORD=StagingPassword123!
+```
+
+---
+
+## 📦 Package.json Scripts
+
+```json
+{
+  "scripts": {
+    "test": "playwright test",
+    "test:headed": "playwright test --headed",
+    "test:ui": "playwright test --ui",
+    "test:smoke": "playwright test --grep @smoke",
+    "test:api": "playwright test tests/api",
+    "test:e2e": "playwright test tests/e2e",
+    "test:staging": "BASE_ENV=staging playwright test",
+    "test:prod": "BASE_ENV=prod playwright test --grep @smoke",
+    "report": "playwright show-report",
+    "allure:generate": "allure generate allure-results --clean",
+    "allure:open": "allure open allure-report",
+    "lint": "eslint . --ext .ts",
+    "lint:fix": "eslint . --ext .ts --fix",
+    "format": "prettier --write \"**/*.{ts,json,md}\""
+  }
+}
+```
+
+---
+
+## 🎯 ESLint Configuration
+
+```json
+// .eslintrc.json
+{
+  "extends": [
+    "eslint:recommended",
+    "plugin:@typescript-eslint/recommended",
+    "plugin:playwright/recommended"
+  ],
+  "rules": {
+    "playwright/no-wait-for-timeout": "error",
+    "playwright/no-element-handle": "error",
+    "playwright/no-eval": "error",
+    "@typescript-eslint/no-explicit-any": "error"
+  }
+}
+```
+
+---
+
+## 🔧 Advanced Configuration
+
+### Multi-Project Setup
+```typescript
+// playwright.config.ts - Multiple projects
+export default defineConfig({
+  projects: [
+    {
+      name: 'chromium',
+      use: { ...devices['Desktop Chrome'] },
+    },
+    {
+      name: 'firefox',
+      use: { ...devices['Desktop Firefox'] },
+    },
+    {
+      name: 'webkit',
+      use: { ...devices['Desktop Safari'] },
+    },
+    {
+      name: 'mobile',
+      use: { ...devices['iPhone 12'] },
+    },
+  ],
+});
+```
+
+### Custom Test Configuration
+```typescript
+// playwright.config.ts - Custom settings
+export default defineConfig({
+  use: {
+    // Global settings
+    baseURL: process.env.BASE_URL,
+    screenshot: 'only-on-failure',
+    video: 'retain-on-failure',
+    trace: 'retain-on-failure',
+    
+    // Custom settings
+    actionTimeout: 10000,
+    navigationTimeout: 30000,
+  },
+  
+  // Test settings
+  timeout: 30000,
+  expect: {
+    timeout: 5000,
+  },
+  
+  // Retry settings
+  retries: process.env.CI ? 2 : 0,
+  
+  // Worker settings
+  workers: process.env.CI ? 2 : undefined,
+  
+  // Reporter settings
+  reporter: [
+    ['html', { open: 'never', outputFolder: 'reports/html' }],
+    ['list'],
+    ['json', { outputFile: 'reports/results.json' }]
+  ],
+});
+```
+
+---
+
+## 🚀 Environment Switching
+
+### Local Development
+```bash
+# Default (dev environment)
+npm test
+
+# Specific environment
+BASE_ENV=staging npm test
+BASE_ENV=prod npm run test:smoke
+```
+
+### CI/CD Environment
+```yaml
+# .github/workflows/playwright.yml
+- name: Run Tests
+  env:
+    BASE_URL: ${{ secrets.BASE_URL }}
+    API_URL: ${{ secrets.API_URL }}
+    TEST_EMAIL: ${{ secrets.TEST_EMAIL }}
+    TEST_PASSWORD: ${{ secrets.TEST_PASSWORD }}
+  run: npm test
+```
+
+---
+
+## 📋 Configuration Checklist
+
+### ✅ Required Files
+- [ ] `playwright.config.ts` - Main configuration
+- [ ] `tsconfig.json` - TypeScript settings
+- [ ] `.eslintrc.json` - Linting rules
+- [ ] `.env.example` - Environment template
+- [ ] `package.json` - Scripts and dependencies
+
+### ✅ Environment Setup
+- [ ] `.env.dev` - Development environment
+- [ ] `.env.staging` - Staging environment
+- [ ] `.env.prod` - Production environment (if needed)
+- [ ] All `.env` files in `.gitignore`
+
+### ✅ CI/CD Secrets
+- [ ] `BASE_URL` - Application URL
+- [ ] `API_URL` - API endpoint
+- [ ] `TEST_EMAIL` - Test user email
+- [ ] `TEST_PASSWORD` - Test user password

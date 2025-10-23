@@ -1,0 +1,416 @@
+---
+alwaysApply: true
+---
+
+# 🔧 Custom Playwright Fixtures
+
+## 🎯 Playwright Fixtures with Page Object Models
+
+**Write once, use everywhere** - Implementing Playwright Fixtures with Page Object Models.
+
+### ✅ CORRECT - Custom Fixture Implementation
+```typescript
+// support/fixtures/test-fixtures.ts
+import { test as base } from '@playwright/test';
+import { LoginPage } from '@/pages/LoginPage';
+import { DashboardPage } from '@/pages/DashboardPage';
+import testData from '@/fixtures/test-data.json';
+
+type TestFixtures = {
+  loginPage: LoginPage;
+  dashboardPage: DashboardPage;
+  testData: typeof testData;
+  authenticatedPage: Page;
+};
+
+export const test = base.extend<TestFixtures>({
+  // Page Object fixtures
+  loginPage: async ({ page }, use) => {
+    const loginPage = new LoginPage(page);
+    await use(loginPage);
+  },
+
+  dashboardPage: async ({ page }, use) => {
+    const dashboardPage = new DashboardPage(page);
+    await use(dashboardPage);
+  },
+
+  // Test data fixture
+  testData: async ({}, use) => {
+    await use(testData);
+  },
+
+  // Pre-authenticated page fixture
+  authenticatedPage: async ({ browser }, use) => {
+    const context = await browser.newContext();
+    const page = await context.newPage();
+    
+    // Pre-login setup
+    const loginPage = new LoginPage(page);
+    await loginPage.goto();
+    await loginPage.login(testData.users.admin.email, testData.users.admin.password);
+    
+    await use(page);
+    await context.close();
+  }
+});
+```
+
+### Usage in Tests
+```typescript
+// tests/e2e/dashboard/dashboard-with-fixtures.spec.ts
+import { test, expect } from '@/support/fixtures/test-fixtures';
+
+test.describe('Dashboard with Fixtures @fixtures', () => {
+  test('should display admin dashboard', async ({ authenticatedPage, dashboardPage }) => {
+    // Arrange - Page is already authenticated via fixture
+    await dashboardPage.goto();
+    
+    // Act & Assert
+    await expect(dashboardPage.adminPanel).toBeVisible();
+    await expect(dashboardPage.userStats).toBeVisible();
+  });
+
+  test('should login and access dashboard', async ({ loginPage, dashboardPage, testData }) => {
+    // Arrange
+    const user = testData.users.admin;
+    
+    // Act
+    await loginPage.goto();
+    await loginPage.login(user.email, user.password);
+    
+    // Assert
+    await expect(dashboardPage.welcomeMessage).toContainText(user.email);
+  });
+});
+```
+
+---
+
+## 🔧 Advanced Fixture Patterns
+
+### 1. API Client Fixtures
+```typescript
+// support/fixtures/api-fixtures.ts
+import { test as base } from '@playwright/test';
+import { UserApiClient } from '@/support/api-client/UserApiClient';
+import { ProductApiClient } from '@/support/api-client/ProductApiClient';
+
+type ApiFixtures = {
+  userApi: UserApiClient;
+  productApi: ProductApiClient;
+  testUser: User;
+};
+
+export const test = base.extend<ApiFixtures>({
+  userApi: async ({ request }, use) => {
+    const userApi = new UserApiClient(request);
+    await use(userApi);
+  },
+
+  productApi: async ({ request }, use) => {
+    const productApi = new ProductApiClient(request);
+    await use(productApi);
+  },
+
+  testUser: async ({ userApi }, use) => {
+    // Create test user
+    const user = await userApi.createUser({
+      email: `test${Date.now()}@example.com`,
+      password: 'Test123!',
+      name: 'Test User'
+    });
+    
+    await use(user);
+    
+    // Cleanup
+    await userApi.deleteUser(user.id);
+  }
+});
+```
+
+### 2. Database Fixtures
+```typescript
+// support/fixtures/database-fixtures.ts
+import { test as base } from '@playwright/test';
+import { DatabaseHelper } from '@/support/utils/database-helper';
+
+type DatabaseFixtures = {
+  db: DatabaseHelper;
+  cleanDatabase: () => Promise<void>;
+};
+
+export const test = base.extend<DatabaseFixtures>({
+  db: async ({}, use) => {
+    const db = new DatabaseHelper();
+    await db.connect();
+    await use(db);
+    await db.disconnect();
+  },
+
+  cleanDatabase: async ({ db }, use) => {
+    const cleanFn = async () => {
+      await db.cleanTestData();
+    };
+    await use(cleanFn);
+  }
+});
+```
+
+### 3. Mock Service Fixtures
+```typescript
+// support/fixtures/mock-fixtures.ts
+import { test as base } from '@playwright/test';
+import { MockService } from '@/support/utils/mock-service';
+
+type MockFixtures = {
+  mockService: MockService;
+  mockApi: (responses: MockResponse[]) => Promise<void>;
+};
+
+export const test = base.extend<MockFixtures>({
+  mockService: async ({}, use) => {
+    const mockService = new MockService();
+    await mockService.start();
+    await use(mockService);
+    await mockService.stop();
+  },
+
+  mockApi: async ({ mockService }, use) => {
+    const mockFn = async (responses: MockResponse[]) => {
+      await mockService.setupResponses(responses);
+    };
+    await use(mockFn);
+  }
+});
+```
+
+---
+
+## 🎯 Fixture Composition
+
+### Combining Multiple Fixtures
+```typescript
+// support/fixtures/composed-fixtures.ts
+import { test as base } from '@playwright/test';
+import { test as apiTest } from './api-fixtures';
+import { test as dbTest } from './database-fixtures';
+import { test as mockTest } from './mock-fixtures';
+
+type ComposedFixtures = {
+  fullTestEnvironment: {
+    page: Page;
+    userApi: UserApiClient;
+    db: DatabaseHelper;
+    mockService: MockService;
+  };
+};
+
+export const test = base.extend<ComposedFixtures>({
+  fullTestEnvironment: async ({ page, userApi, db, mockService }, use) => {
+    const environment = {
+      page,
+      userApi,
+      db,
+      mockService
+    };
+    
+    // Setup complete test environment
+    await mockService.setupDefaultMocks();
+    await db.seedTestData();
+    
+    await use(environment);
+    
+    // Cleanup
+    await db.cleanTestData();
+    await mockService.reset();
+  }
+});
+```
+
+### Conditional Fixtures
+```typescript
+// support/fixtures/conditional-fixtures.ts
+import { test as base } from '@playwright/test';
+
+type ConditionalFixtures = {
+  authenticatedUser: User | null;
+  adminUser: User | null;
+};
+
+export const test = base.extend<ConditionalFixtures>({
+  authenticatedUser: async ({ userApi, testData }, use) => {
+    if (process.env.USE_AUTHENTICATED_USER === 'true') {
+      const user = await userApi.createUser(testData.users.regular);
+      await use(user);
+      await userApi.deleteUser(user.id);
+    } else {
+      await use(null);
+    }
+  },
+
+  adminUser: async ({ userApi, testData }, use) => {
+    if (process.env.USE_ADMIN_USER === 'true') {
+      const user = await userApi.createUser(testData.users.admin);
+      await use(user);
+      await userApi.deleteUser(user.id);
+    } else {
+      await use(null);
+    }
+  }
+});
+```
+
+---
+
+## 🔧 Fixture Utilities
+
+### Fixture Builder
+```typescript
+// support/utils/fixture-builder.ts
+export class FixtureBuilder {
+  static createPageObjectFixture<T>(PageClass: new (page: Page) => T) {
+    return async ({ page }: { page: Page }, use: (fixture: T) => Promise<void>) => {
+      const pageObject = new PageClass(page);
+      await use(pageObject);
+    };
+  }
+
+  static createApiClientFixture<T>(ApiClass: new (request: APIRequestContext) => T) {
+    return async ({ request }: { request: APIRequestContext }, use: (fixture: T) => Promise<void>) => {
+      const apiClient = new ApiClass(request);
+      await use(apiClient);
+    };
+  }
+
+  static createDataFixture<T>(data: T) {
+    return async ({}, use: (fixture: T) => Promise<void>) => {
+      await use(data);
+    };
+  }
+}
+```
+
+### Fixture Registry
+```typescript
+// support/utils/fixture-registry.ts
+export class FixtureRegistry {
+  private static fixtures: Map<string, any> = new Map();
+
+  static register<T>(name: string, fixture: T): void {
+    this.fixtures.set(name, fixture);
+  }
+
+  static get<T>(name: string): T {
+    return this.fixtures.get(name);
+  }
+
+  static createTestWithFixtures(fixtureNames: string[]) {
+    let test = base;
+    
+    for (const name of fixtureNames) {
+      const fixture = this.get(name);
+      test = test.extend(fixture);
+    }
+    
+    return test;
+  }
+}
+
+// Register fixtures
+FixtureRegistry.register('loginPage', FixtureBuilder.createPageObjectFixture(LoginPage));
+FixtureRegistry.register('userApi', FixtureBuilder.createApiClientFixture(UserApiClient));
+FixtureRegistry.register('testData', FixtureBuilder.createDataFixture(testData));
+```
+
+---
+
+## 🎯 Fixture Best Practices
+
+### 1. Proper Cleanup
+```typescript
+// ✅ CORRECT - Proper cleanup
+export const test = base.extend<TestFixtures>({
+  testUser: async ({ userApi }, use) => {
+    const user = await userApi.createUser(testData.users.regular);
+    
+    try {
+      await use(user);
+    } finally {
+      // Always cleanup, even if test fails
+      await userApi.deleteUser(user.id);
+    }
+  }
+});
+```
+
+### 2. Error Handling
+```typescript
+// ✅ CORRECT - Error handling in fixtures
+export const test = base.extend<TestFixtures>({
+  authenticatedPage: async ({ browser }, use) => {
+    const context = await browser.newContext();
+    const page = await context.newPage();
+    
+    try {
+      // Setup authentication
+      const loginPage = new LoginPage(page);
+      await loginPage.goto();
+      await loginPage.login(testData.users.admin.email, testData.users.admin.password);
+      
+      await use(page);
+    } catch (error) {
+      console.error('Failed to setup authenticated page:', error);
+      throw error;
+    } finally {
+      await context.close();
+    }
+  }
+});
+```
+
+### 3. Performance Optimization
+```typescript
+// ✅ CORRECT - Performance optimization
+export const test = base.extend<TestFixtures>({
+  // Reuse browser context for multiple tests
+  sharedContext: async ({ browser }, use) => {
+    const context = await browser.newContext();
+    await use(context);
+    await context.close();
+  },
+
+  // Cache expensive operations
+  cachedData: async ({}, use) => {
+    if (!this.cache) {
+      this.cache = await loadExpensiveData();
+    }
+    await use(this.cache);
+  }
+});
+```
+
+---
+
+## 📋 Custom Fixtures Checklist
+
+### ✅ Fixture Design
+- [ ] **Clear fixture names** that describe their purpose
+- [ ] **Proper TypeScript types** for all fixtures
+- [ ] **Consistent patterns** across all fixtures
+- [ ] **Error handling** for setup and cleanup
+- [ ] **Performance considerations** for expensive operations
+
+### ✅ Implementation
+- [ ] **Proper cleanup** in finally blocks
+- [ ] **Resource management** (contexts, connections)
+- [ ] **Conditional logic** when appropriate
+- [ ] **Composition patterns** for complex scenarios
+- [ ] **Reusable utilities** for common patterns
+
+### ✅ Usage
+- [ ] **Clear documentation** of fixture behavior
+- [ ] **Easy to use** in test files
+- [ ] **Consistent imports** and exports
+- [ ] **Proper error messages** when fixtures fail
+- [ ] **Test coverage** for fixture functionality

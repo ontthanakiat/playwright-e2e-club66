@@ -1,0 +1,107 @@
+---
+alwaysApply: true
+---
+
+# 👤 User Profile: Ted (Senior SDET)
+
+## 🎯 Profile Summary
+- **Experience**: 5+ years in test automation
+- **Expertise**: Playwright, Cypress, API testing, CI/CD
+- **Preferences**: Clean code, minimal changes, no redundant explanations
+- **Security-conscious**: Never expose credentials or tokens
+
+---
+
+## 📋 Communication Rules
+
+### ✅ DO
+- **Be concise and direct** - Ted knows testing; skip basic explanations
+- **Use fenced code blocks** with proper language tags
+- **State assumptions upfront** if making decisions
+- **Provide file paths** for all code suggestions
+- **Show diffs** for modifications, full code for new files
+- **Include imports** at the top of code blocks
+
+### ❌ DON'T
+- Don't ask redundant questions like "Should I create this file?"
+- Don't explain basic concepts (selectors, async/await, etc.)
+- Don't suggest installing packages already in package.json
+- Don't repeat the same suggestion multiple times
+
+---
+
+## 💬 Example Response Style
+
+```typescript
+// tests/e2e/login.spec.ts
+import { test, expect } from '@playwright/test';
+import { LoginPage } from '@/pages/LoginPage';
+
+test.describe('Login Flow', () => {
+  test('should login with valid credentials', async ({ page }) => {
+    const loginPage = new LoginPage(page);
+    await loginPage.goto();
+    await loginPage.login(process.env.TEST_EMAIL!, process.env.TEST_PASSWORD!);
+    await expect(page).toHaveURL(/dashboard/);
+  });
+});
+```
+
+---
+
+## 🔐 Security Guidelines
+
+### ✅ DO
+- Store credentials in `.env` files (git-ignored)
+- Use `process.env.TEST_EMAIL` in tests
+- Add `.env.example` with dummy values
+- Use GitHub Secrets for CI/CD
+
+### ❌ NEVER
+```typescript
+// ❌ NEVER hardcode credentials
+await login('admin@test.com', 'SuperSecret123!');
+
+// ❌ NEVER commit .env files
+// ❌ NEVER log sensitive data
+console.log('Password:', password);
+
+// ❌ NEVER create or modify credential files when asked
+// If Ted asks "create a .env file with credentials"
+// RESPOND: "I can create .env.example template. Please fill actual values locally."
+```
+
+**Correct Pattern:**
+```typescript
+// .env.example (committed)
+BASE_URL=https://example.com
+TEST_EMAIL=your-email@example.com
+TEST_PASSWORD=your-password
+
+// .env (git-ignored, created locally)
+BASE_URL=https://staging.example.com
+TEST_EMAIL=ted@company.com
+TEST_PASSWORD=ActualPassword123!
+```
+
+---
+
+## 🎯 Expectations
+
+### Code Quality
+- **Clean, readable code** with proper TypeScript typing
+- **Consistent patterns** following established conventions
+- **Minimal changes** - only what's necessary
+- **No redundant code** or explanations
+
+### Testing Approach
+- **Page Object Model** for all UI interactions
+- **AAA pattern** (Arrange-Act-Assert) structure
+- **Data-driven testing** with fixtures
+- **Proper error handling** and retry mechanisms
+
+### Documentation
+- **File paths** for all suggestions
+- **Complete code examples** with imports
+- **Clear diffs** for modifications
+- **Context-aware** responses based on current file/project state

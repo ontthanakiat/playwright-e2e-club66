@@ -1,0 +1,227 @@
+---
+alwaysApply: true
+---
+
+# 🎯 Selector Best Practices
+
+## 📋 Selector Priority (Playwright Best Practice)
+
+**Use in this order:**
+1. `getByRole()` - Best for accessibility
+2. `getByLabel()` - For form inputs
+3. `getByText()` - For unique text
+4. `getByTestId()` - Last resort
+5. **Never use CSS/XPath** unless absolutely necessary
+
+---
+
+## ✅ CORRECT Selector Patterns
+
+### 1. Role-Based Selectors (Preferred)
+```typescript
+// ✅ CORRECT - Role selectors
+private submitButton = () => this.page.getByRole('button', { name: 'Submit' });
+private loginButton = () => this.page.getByRole('button', { name: 'Login' });
+private searchInput = () => this.page.getByRole('textbox', { name: 'Search' });
+private navigation = () => this.page.getByRole('navigation');
+private mainContent = () => this.page.getByRole('main');
+private alertMessage = () => this.page.getByRole('alert');
+```
+
+### 2. Label-Based Selectors
+```typescript
+// ✅ CORRECT - Label selectors for forms
+private emailInput = () => this.page.getByLabel('Email address');
+private passwordInput = () => this.page.getByLabel('Password');
+private firstNameInput = () => this.page.getByLabel('First name');
+private phoneInput = () => this.page.getByLabel('Phone number');
+```
+
+### 3. Text-Based Selectors
+```typescript
+// ✅ CORRECT - Text selectors
+private successMessage = () => this.page.getByText('Order placed successfully');
+private errorMessage = () => this.page.getByText('Invalid credentials');
+private welcomeText = () => this.page.getByText('Welcome back');
+private loadingSpinner = () => this.page.getByText('Loading...');
+```
+
+### 4. Test ID Selectors (Last Resort)
+```typescript
+// ✅ CORRECT - Test ID selectors
+private customWidget = () => this.page.getByTestId('custom-widget');
+private productCard = () => this.page.getByTestId('product-card');
+private userProfile = () => this.page.getByTestId('user-profile');
+```
+
+---
+
+## ❌ WRONG Selector Patterns
+
+### Avoid CSS/XPath Selectors
+```typescript
+// ❌ WRONG - CSS selectors
+private submitButton = () => this.page.locator('button.submit-btn');
+private emailInput = () => this.page.locator('#email-input');
+private productList = () => this.page.locator('.product-list');
+
+// ❌ WRONG - XPath selectors
+private submitButton = () => this.page.locator('//button[@type="submit"]');
+private emailInput = () => this.page.locator('//input[@id="email"]');
+```
+
+### Avoid Fragile Selectors
+```typescript
+// ❌ WRONG - Fragile selectors
+private button = () => this.page.locator('button:nth-child(2)');
+private input = () => this.page.locator('input[placeholder*="email"]');
+private div = () => this.page.locator('div.container > div.row > div.col');
+```
+
+---
+
+## 🎯 Advanced Selector Patterns
+
+### 1. Combined Selectors
+```typescript
+// ✅ CORRECT - Combining selectors
+private loginForm = () => this.page.getByRole('form', { name: 'Login' });
+private submitButtonInForm = () => this.loginForm().getByRole('button', { name: 'Submit' });
+private emailInForm = () => this.loginForm().getByLabel('Email');
+```
+
+### 2. Filtered Selectors
+```typescript
+// ✅ CORRECT - Filtered selectors
+private visibleButton = () => this.page.getByRole('button', { name: 'Submit' }).filter({ hasText: 'Submit' });
+private enabledInput = () => this.page.getByLabel('Email').filter({ hasNotText: 'disabled' });
+private firstProduct = () => this.page.getByTestId('product-card').first();
+private lastProduct = () => this.page.getByTestId('product-card').last();
+```
+
+### 3. Dynamic Selectors
+```typescript
+// ✅ CORRECT - Dynamic selectors
+private productByName = (name: string) => this.page.getByTestId('product-card').filter({ hasText: name });
+private userByEmail = (email: string) => this.page.getByTestId('user-row').filter({ hasText: email });
+private buttonByText = (text: string) => this.page.getByRole('button', { name: text });
+```
+
+---
+
+## 🔍 Selector Debugging
+
+### Debug Selector Issues
+```typescript
+// ✅ CORRECT - Debug selectors
+test('debug selector', async ({ page }) => {
+  await page.goto('/login');
+  
+  // Debug: Check if element exists
+  const emailInput = page.getByLabel('Email');
+  console.log('Email input count:', await emailInput.count());
+  
+  // Debug: Check element state
+  console.log('Email input visible:', await emailInput.isVisible());
+  console.log('Email input enabled:', await emailInput.isEnabled());
+  
+  // Debug: Get element text
+  console.log('Email input placeholder:', await emailInput.getAttribute('placeholder'));
+});
+```
+
+### Wait for Selectors
+```typescript
+// ✅ CORRECT - Wait for selectors
+private async waitForElement(selector: Locator) {
+  await selector.waitFor({ state: 'visible', timeout: 10000 });
+}
+
+private async waitForElementToDisappear(selector: Locator) {
+  await selector.waitFor({ state: 'hidden', timeout: 5000 });
+}
+```
+
+---
+
+## 📱 Responsive Selectors
+
+### Mobile-First Selectors
+```typescript
+// ✅ CORRECT - Responsive selectors
+private mobileMenuButton = () => this.page.getByRole('button', { name: 'Menu' });
+private desktopNavigation = () => this.page.getByRole('navigation');
+private mobileNavigation = () => this.page.getByTestId('mobile-nav');
+
+// Conditional selectors based on viewport
+private getNavigation() {
+  return this.page.viewportSize()?.width < 768 
+    ? this.mobileNavigation() 
+    : this.desktopNavigation();
+}
+```
+
+---
+
+## 🎯 Selector Best Practices
+
+### ✅ DO
+- **Use semantic selectors** (role, label, text)
+- **Prefer accessibility-friendly** selectors
+- **Use test IDs** only when necessary
+- **Combine selectors** for specificity
+- **Wait for elements** before interacting
+- **Debug selectors** when they fail
+
+### ❌ DON'T
+- **Avoid CSS/XPath** selectors
+- **Don't use fragile** selectors (nth-child, complex CSS)
+- **Don't rely on** styling classes
+- **Don't use** generic selectors without context
+- **Don't skip** waiting for elements
+
+---
+
+## 🔧 Selector Utilities
+
+### Helper Functions
+```typescript
+// support/utils/selector-helpers.ts
+export class SelectorHelpers {
+  static async waitForElement(page: Page, selector: Locator, timeout = 10000) {
+    await selector.waitFor({ state: 'visible', timeout });
+  }
+
+  static async getElementText(page: Page, selector: Locator): Promise<string> {
+    await this.waitForElement(page, selector);
+    return await selector.textContent() || '';
+  }
+
+  static async isElementVisible(page: Page, selector: Locator): Promise<boolean> {
+    try {
+      await selector.waitFor({ state: 'visible', timeout: 1000 });
+      return true;
+    } catch {
+      return false;
+    }
+  }
+}
+```
+
+### Usage in Page Objects
+```typescript
+// pages/LoginPage.ts
+import { SelectorHelpers } from '@/support/utils/selector-helpers';
+
+export class LoginPage {
+  private emailInput = () => this.page.getByLabel('Email');
+  private passwordInput = () => this.page.getByLabel('Password');
+
+  async login(email: string, password: string) {
+    await SelectorHelpers.waitForElement(this.page, this.emailInput());
+    await this.emailInput().fill(email);
+    await this.passwordInput().fill(password);
+    await this.submitButton().click();
+  }
+}
+```

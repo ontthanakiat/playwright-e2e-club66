@@ -1,0 +1,302 @@
+---
+alwaysApply: true
+---
+
+# 📸 Visual Testing
+
+## 🎯 Screenshot Testing
+
+**Capture and compare screenshots** for visual regression testing.
+
+### ✅ CORRECT - Screenshot Testing
+```typescript
+// tests/visual/screenshots.spec.ts
+test.describe('Visual Regression Tests @visual', () => {
+  test('should match login page screenshot', async ({ page }) => {
+    await page.goto('/login');
+    await expect(page).toHaveScreenshot('login-page.png');
+  });
+
+  test('should match dashboard screenshot', async ({ page }) => {
+    await page.goto('/dashboard');
+    await expect(page).toHaveScreenshot('dashboard.png');
+  });
+
+  test('should match product card screenshot', async ({ page }) => {
+    await page.goto('/products');
+    const productCard = page.getByTestId('product-card').first();
+    await expect(productCard).toHaveScreenshot('product-card.png');
+  });
+});
+```
+
+---
+
+## 🔧 Visual Testing Configuration
+
+### Playwright Config for Visual Testing
+```typescript
+// playwright.config.ts
+export default defineConfig({
+  use: {
+    // Visual testing settings
+    screenshot: 'only-on-failure',
+    video: 'retain-on-failure',
+    trace: 'retain-on-failure',
+  },
+  
+  // Visual testing projects
+  projects: [
+    {
+      name: 'visual-chrome',
+      use: { ...devices['Desktop Chrome'] },
+      testMatch: '**/visual/**/*.spec.ts',
+    },
+    {
+      name: 'visual-firefox',
+      use: { ...devices['Desktop Firefox'] },
+      testMatch: '**/visual/**/*.spec.ts',
+    },
+  ],
+});
+```
+
+---
+
+## 🎯 Visual Testing Patterns
+
+### 1. Full Page Screenshots
+```typescript
+// tests/visual/full-page.spec.ts
+test.describe('Full Page Visual Tests @visual', () => {
+  test('should match homepage screenshot', async ({ page }) => {
+    await page.goto('/');
+    await expect(page).toHaveScreenshot('homepage.png');
+  });
+
+  test('should match about page screenshot', async ({ page }) => {
+    await page.goto('/about');
+    await expect(page).toHaveScreenshot('about-page.png');
+  });
+
+  test('should match contact page screenshot', async ({ page }) => {
+    await page.goto('/contact');
+    await expect(page).toHaveScreenshot('contact-page.png');
+  });
+});
+```
+
+### 2. Element Screenshots
+```typescript
+// tests/visual/elements.spec.ts
+test.describe('Element Visual Tests @visual', () => {
+  test('should match header screenshot', async ({ page }) => {
+    await page.goto('/');
+    const header = page.getByRole('banner');
+    await expect(header).toHaveScreenshot('header.png');
+  });
+
+  test('should match navigation screenshot', async ({ page }) => {
+    await page.goto('/');
+    const navigation = page.getByRole('navigation');
+    await expect(navigation).toHaveScreenshot('navigation.png');
+  });
+
+  test('should match footer screenshot', async ({ page }) => {
+    await page.goto('/');
+    const footer = page.getByRole('contentinfo');
+    await expect(footer).toHaveScreenshot('footer.png');
+  });
+});
+```
+
+### 3. Responsive Screenshots
+```typescript
+// tests/visual/responsive.spec.ts
+test.describe('Responsive Visual Tests @visual', () => {
+  test('should match mobile homepage', async ({ page }) => {
+    await page.setViewportSize({ width: 375, height: 667 });
+    await page.goto('/');
+    await expect(page).toHaveScreenshot('homepage-mobile.png');
+  });
+
+  test('should match tablet homepage', async ({ page }) => {
+    await page.setViewportSize({ width: 768, height: 1024 });
+    await page.goto('/');
+    await expect(page).toHaveScreenshot('homepage-tablet.png');
+  });
+
+  test('should match desktop homepage', async ({ page }) => {
+    await page.setViewportSize({ width: 1920, height: 1080 });
+    await page.goto('/');
+    await expect(page).toHaveScreenshot('homepage-desktop.png');
+  });
+});
+```
+
+---
+
+## 🔧 Visual Testing Utilities
+
+### Screenshot Helper
+```typescript
+// support/utils/screenshot-helper.ts
+export class ScreenshotHelper {
+  static async captureFullPage(page: Page, name: string): Promise<void> {
+    await expect(page).toHaveScreenshot(`${name}.png`);
+  }
+
+  static async captureElement(page: Page, selector: string, name: string): Promise<void> {
+    const element = page.locator(selector);
+    await expect(element).toHaveScreenshot(`${name}.png`);
+  }
+
+  static async captureWithViewport(page: Page, viewport: ViewportSize, name: string): Promise<void> {
+    await page.setViewportSize(viewport);
+    await expect(page).toHaveScreenshot(`${name}.png`);
+  }
+
+  static async captureMultipleViewports(page: Page, name: string): Promise<void> {
+    const viewports = [
+      { width: 375, height: 667, suffix: 'mobile' },
+      { width: 768, height: 1024, suffix: 'tablet' },
+      { width: 1920, height: 1080, suffix: 'desktop' }
+    ];
+
+    for (const viewport of viewports) {
+      await page.setViewportSize({ width: viewport.width, height: viewport.height });
+      await expect(page).toHaveScreenshot(`${name}-${viewport.suffix}.png`);
+    }
+  }
+}
+```
+
+### Usage in Tests
+```typescript
+// tests/visual/helper-usage.spec.ts
+import { ScreenshotHelper } from '@/support/utils/screenshot-helper';
+
+test.describe('Visual Tests with Helper @visual', () => {
+  test('should capture homepage screenshots', async ({ page }) => {
+    await page.goto('/');
+    await ScreenshotHelper.captureMultipleViewports(page, 'homepage');
+  });
+
+  test('should capture component screenshots', async ({ page }) => {
+    await page.goto('/products');
+    await ScreenshotHelper.captureElement(page, '[data-testid="product-card"]', 'product-card');
+  });
+});
+```
+
+---
+
+## 🎯 Visual Testing Best Practices
+
+### ✅ DO
+- **Use consistent viewport sizes** for reliable comparisons
+- **Wait for content to load** before capturing screenshots
+- **Use meaningful names** for screenshot files
+- **Test multiple viewports** for responsive design
+- **Capture both full pages and elements** as needed
+- **Use visual testing** for critical UI components
+
+### ❌ DON'T
+```typescript
+// ❌ WRONG - No viewport consistency
+test('should match screenshot', async ({ page }) => {
+  await page.goto('/');
+  // Different viewport sizes will cause failures
+  await expect(page).toHaveScreenshot('page.png');
+});
+
+// ❌ WRONG - No content loading wait
+test('should match screenshot', async ({ page }) => {
+  await page.goto('/');
+  // May capture loading state instead of final content
+  await expect(page).toHaveScreenshot('page.png');
+});
+```
+
+### ✅ CORRECT
+```typescript
+// ✅ CORRECT - Consistent viewport and content loading
+test('should match homepage screenshot', async ({ page }) => {
+  await page.setViewportSize({ width: 1920, height: 1080 });
+  await page.goto('/');
+  await page.waitForLoadState('networkidle');
+  await expect(page).toHaveScreenshot('homepage.png');
+});
+```
+
+---
+
+## 🔧 Visual Testing Configuration
+
+### Screenshot Options
+```typescript
+// playwright.config.ts
+export default defineConfig({
+  use: {
+    // Screenshot settings
+    screenshot: 'only-on-failure',
+    video: 'retain-on-failure',
+    trace: 'retain-on-failure',
+  },
+  
+  // Visual testing specific settings
+  expect: {
+    // Screenshot comparison settings
+    threshold: 0.2, // 20% difference threshold
+    maxDiffPixels: 100, // Maximum different pixels
+    maxDiffPixelRatio: 0.1, // Maximum pixel ratio difference
+  },
+});
+```
+
+### Custom Screenshot Settings
+```typescript
+// tests/visual/custom-settings.spec.ts
+test.describe('Custom Screenshot Settings @visual', () => {
+  test('should match with custom threshold', async ({ page }) => {
+    await page.goto('/');
+    await expect(page).toHaveScreenshot('homepage.png', {
+      threshold: 0.1, // 10% difference threshold
+      maxDiffPixels: 50, // Maximum 50 different pixels
+    });
+  });
+
+  test('should match with custom animations', async ({ page }) => {
+    await page.goto('/');
+    await expect(page).toHaveScreenshot('homepage.png', {
+      animations: 'disabled', // Disable animations
+      fullPage: true, // Capture full page
+    });
+  });
+});
+```
+
+---
+
+## 📋 Visual Testing Checklist
+
+### ✅ Test Setup
+- [ ] **Consistent viewport sizes** for all tests
+- [ ] **Proper content loading** before screenshots
+- [ ] **Meaningful screenshot names** for easy identification
+- [ ] **Appropriate thresholds** for comparison
+- [ ] **Multiple viewport testing** for responsive design
+
+### ✅ Test Coverage
+- [ ] **Critical pages** and components
+- [ ] **Different user states** (logged in/out)
+- [ ] **Various screen sizes** (mobile, tablet, desktop)
+- [ ] **Interactive elements** (buttons, forms, modals)
+- [ ] **Error states** and loading states
+
+### ✅ Maintenance
+- [ ] **Regular screenshot updates** when UI changes
+- [ ] **Baseline image management** in version control
+- [ ] **CI/CD integration** for visual regression testing
+- [ ] **Team review process** for visual changes
+- [ ] **Documentation** of visual testing standards

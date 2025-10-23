@@ -1,0 +1,345 @@
+---
+alwaysApply: true
+---
+
+# 🎯 Testing Best Practices
+
+## 🎯 Keep Tests Short
+
+**Maintainable scripts** are key to long-term success.
+
+### ✅ CORRECT - Simple, Focused Test
+```typescript
+test('should login with valid credentials', async ({ page }) => {
+  const loginPage = new LoginPage(page);
+  await loginPage.goto();
+  await loginPage.login(process.env.TEST_EMAIL!, process.env.TEST_PASSWORD!);
+  await expect(page).toHaveURL(/dashboard/);
+});
+```
+
+### ❌ WRONG - Overly Complex Test
+```typescript
+test('should do everything', async ({ page }) => {
+  // 50+ lines of mixed functionality
+  // Login + checkout + payment + email verification + etc.
+});
+```
+
+**Principles:**
+- **Simplicity**: Keep the goal clear and avoid complex solutions
+- **Conciseness**: Don't be overly verbose
+- **Readability**: Follow general coding best practices
+
+---
+
+## 🎯 Keep Tests Focused
+
+**One feature per test** for clear failure interpretation.
+
+### ✅ CORRECT - Separate Focused Tests
+```typescript
+test.describe('Checkout Flow', () => {
+  test('should complete checkout with valid payment', async ({ page }) => {
+    // Only tests checkout functionality
+  });
+});
+
+test.describe('Coupon System', () => {
+  test('should apply valid coupon code', async ({ page }) => {
+    // Only tests coupon functionality
+  });
+});
+```
+
+### ❌ WRONG - Testing Multiple Features
+```typescript
+test('should checkout and apply coupon', async ({ page }) => {
+  // If this fails, unclear which feature is broken
+});
+```
+
+**Check your assertions:** If they span multiple features, split the test.
+
+---
+
+## 🎯 Keep Tests Independent
+
+**No test dependencies** for maximum parallelization.
+
+### ✅ CORRECT - Independent Tests with Setup
+```typescript
+test.describe('User Management', () => {
+  test.beforeEach(async ({ request }) => {
+    // Setup: Create test user via API
+    await createTestUser(request);
+  });
+
+  test('should login with created user', async ({ page }) => {
+    const loginPage = new LoginPage(page);
+    await loginPage.goto();
+    await loginPage.login(testUser.email, testUser.password);
+    await expect(page).toHaveURL(/dashboard/);
+  });
+
+  test('should checkout as created user', async ({ page }) => {
+    // Setup: Login first
+    await loginAsTestUser(page);
+    
+    // Test checkout functionality
+    const checkoutPage = new CheckoutPage(page);
+    await checkoutPage.completeCheckout();
+    await expect(page).toHaveURL(/success/);
+  });
+});
+```
+
+### ❌ WRONG - Dependent Tests
+```typescript
+test('should create user', async ({ page }) => {
+  // Creates user1
+});
+
+test('should login with user1', async ({ page }) => {
+  // Depends on previous test - will fail if run alone
+});
+```
+
+**Benefits of independence:**
+- **Parallel execution**: Tests can run simultaneously
+- **Clear failures**: Each test is self-contained
+- **Flexible ordering**: Tests can run in any order
+- **Easier maintenance**: Changes don't cascade
+
+---
+
+## 🎯 Use Proper Setup/Teardown
+
+**API-based provisioning** for faster, more reliable tests.
+
+### ✅ CORRECT - API-based Setup
+```typescript
+test.describe('User Workflows', () => {
+  let testUser: User;
+
+  test.beforeAll(async ({ request }) => {
+    // Fast API setup
+    testUser = await createUserViaAPI(request);
+  });
+
+  test.afterAll(async ({ request }) => {
+    // Cleanup via API
+    await deleteUserViaAPI(request, testUser.id);
+  });
+
+  test('should complete user journey', async ({ page }) => {
+    // Test uses pre-created user
+  });
+});
+```
+
+---
+
+## 🎯 Sequential Tests (When Needed)
+
+**Use `test.describe.serial()`** for tests that must run in order.
+
+### ✅ CORRECT - Sequential Tests When Required
+```typescript
+test.describe.serial('Multi-step Workflow', () => {
+  test('step 1: should create order', async ({ page }) => {
+    // Creates order that next test depends on
+  });
+
+  test('step 2: should process payment', async ({ page }) => {
+    // Depends on order from step 1
+  });
+
+  test('step 3: should send confirmation', async ({ page }) => {
+    // Depends on payment from step 2
+  });
+});
+```
+
+**Use sparingly** - only when business logic requires sequential execution.
+
+---
+
+## 🎯 Test Data Management
+
+### ✅ CORRECT - Test Data in Tests
+```typescript
+test.describe('Product Search', () => {
+  test('should find products by category', async ({ page }) => {
+    // Arrange
+    const searchPage = new SearchPage(page);
+    const testCategory = 'electronics';
+    
+    // Act
+    await searchPage.goto();
+    await searchPage.searchByCategory(testCategory);
+    
+    // Assert
+    await expect(searchPage.results).toHaveCount(5);
+    await expect(searchPage.categoryFilter).toHaveText(testCategory);
+  });
+});
+```
+
+### ✅ CORRECT - Dynamic Test Data
+```typescript
+test.describe('User Registration', () => {
+  const testUsers = [
+    { name: 'John Doe', email: 'john@test.com' },
+    { name: 'Jane Smith', email: 'jane@test.com' },
+    { name: 'Bob Johnson', email: 'bob@test.com' }
+  ];
+
+  for (const user of testUsers) {
+    test(`should register user: ${user.name}`, async ({ page }) => {
+      // Arrange
+      const registrationPage = new RegistrationPage(page);
+      
+      // Act
+      await registrationPage.goto();
+      await registrationPage.register(user.name, user.email);
+      
+      // Assert
+      await expect(page).toHaveURL(/success/);
+    });
+  }
+});
+```
+
+---
+
+## 🎯 Test Organization
+
+### ✅ CORRECT - Feature-Based Organization
+```typescript
+// tests/e2e/auth/login.spec.ts
+test.describe('Login Flow @smoke', () => {
+  test.beforeEach(async ({ page }) => {
+    await page.goto('/login');
+  });
+
+  test('should login with valid credentials', async ({ page }) => {
+    // Arrange
+    const loginPage = new LoginPage(page);
+    const validUser = testData.users.valid;
+
+    // Act
+    await loginPage.login(validUser.email, validUser.password);
+
+    // Assert
+    await expect(page).toHaveURL(/dashboard/);
+    await expect(page.getByText('Welcome')).toBeVisible();
+  });
+
+  test('should show error for invalid credentials', async ({ page }) => {
+    // Arrange
+    const loginPage = new LoginPage(page);
+
+    // Act
+    await loginPage.login('invalid@test.com', 'wrong');
+
+    // Assert
+    await expect(loginPage.getErrorMessage()).toContain('Invalid credentials');
+  });
+});
+```
+
+---
+
+## 🎯 Performance Best Practices
+
+### ✅ CORRECT - Efficient Test Execution
+```typescript
+test.describe('Product Search', () => {
+  test.beforeAll(async ({ request }) => {
+    // Setup once for all tests
+    await seedTestData(request);
+  });
+
+  test.afterAll(async ({ request }) => {
+    // Cleanup once after all tests
+    await cleanupTestData(request);
+  });
+
+  test('should search products', async ({ page }) => {
+    // Fast test execution
+  });
+});
+```
+
+### ✅ CORRECT - Parallel Test Execution
+```typescript
+// playwright.config.ts
+export default defineConfig({
+  workers: process.env.CI ? 2 : undefined, // Parallel execution
+  retries: process.env.CI ? 2 : 0, // Retry on failure
+  timeout: 30000, // Reasonable timeout
+});
+```
+
+---
+
+## 🎯 Test Maintenance
+
+### ✅ CORRECT - Maintainable Test Code
+```typescript
+// support/utils/test-helpers.ts
+export class TestHelpers {
+  static async createTestUser(request: APIRequestContext): Promise<User> {
+    const userApi = new UserApiClient(request);
+    return await userApi.createUser({
+      name: `Test User ${Date.now()}`,
+      email: `test${Date.now()}@example.com`,
+      password: 'Test123!'
+    });
+  }
+
+  static async deleteTestUser(request: APIRequestContext, userId: string): Promise<void> {
+    const userApi = new UserApiClient(request);
+    await userApi.deleteUser(userId);
+  }
+
+  static async loginAsUser(page: Page, email: string, password: string): Promise<void> {
+    const loginPage = new LoginPage(page);
+    await loginPage.goto();
+    await loginPage.login(email, password);
+  }
+}
+```
+
+---
+
+## 📋 Best Practices Checklist
+
+### ✅ Test Design
+- [ ] **Short and focused** tests with single responsibility
+- [ ] **Independent tests** with no dependencies
+- [ ] **Proper setup/teardown** using APIs when possible
+- [ ] **Clear test names** that describe the scenario
+- [ ] **AAA pattern** (Arrange-Act-Assert) structure
+
+### ✅ Test Data
+- [ ] **Realistic test data** that mirrors production
+- [ ] **Dynamic data generation** for unique test runs
+- [ ] **Proper cleanup** of test data after tests
+- [ ] **Environment-specific** data when needed
+- [ ] **Validation data** for edge cases
+
+### ✅ Performance
+- [ ] **Efficient test execution** with minimal setup
+- [ ] **Parallel execution** where possible
+- [ ] **Appropriate timeouts** for operations
+- [ ] **Retry mechanisms** for flaky operations
+- [ ] **Resource cleanup** after test completion
+
+### ✅ Maintenance
+- [ ] **Reusable test utilities** for common operations
+- [ ] **Clear error messages** for test failures
+- [ ] **Proper logging** without sensitive data
+- [ ] **Version control** for test data and configurations
+- [ ] **Documentation** of test patterns and conventions

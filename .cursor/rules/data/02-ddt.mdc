@@ -1,0 +1,367 @@
+---
+alwaysApply: true
+---
+
+# 📊 Data-Driven Testing (DDT)
+
+## 🎯 DDT Principles
+
+**Comprehensive fixture management** for scalable test data and parameterized testing.
+
+### ✅ CORRECT - DDT Implementation
+```typescript
+// fixtures/test-data.json
+{
+  "loginScenarios": [
+    { "email": "valid@test.com", "password": "Valid123!", "expected": "success" },
+    { "email": "invalid@test.com", "password": "Wrong123!", "expected": "error" },
+    { "email": "", "password": "Valid123!", "expected": "validation" }
+  ],
+  "userRoles": [
+    { "role": "admin", "permissions": ["read", "write", "delete"] },
+    { "role": "user", "permissions": ["read"] },
+    { "role": "guest", "permissions": [] }
+  ]
+}
+
+// tests/e2e/auth/login-parameterized.spec.ts
+import testData from '@/fixtures/test-data.json';
+
+test.describe('Login Parameterized Tests @ddt', () => {
+  for (const scenario of testData.loginScenarios) {
+    test(`should handle ${scenario.expected} for ${scenario.email || 'empty email'}`, async ({ page }) => {
+      const loginPage = new LoginPage(page);
+      await loginPage.goto();
+      await loginPage.login(scenario.email, scenario.password);
+      
+      if (scenario.expected === 'success') {
+        await expect(page).toHaveURL(/dashboard/);
+      } else {
+        await expect(loginPage.getErrorMessage()).toBeVisible();
+      }
+    });
+  }
+});
+```
+
+---
+
+## 🔄 Parameterized Testing Patterns
+
+### 1. Simple Parameterized Tests
+```typescript
+// tests/e2e/products/product-search.spec.ts
+import products from '@/fixtures/products.json';
+
+test.describe('Product Search @ddt', () => {
+  for (const product of products.searchScenarios) {
+    test(`should search for ${product.category} products`, async ({ page }) => {
+      const searchPage = new SearchPage(page);
+      await searchPage.goto();
+      await searchPage.searchByCategory(product.category);
+      
+      await expect(searchPage.results).toHaveCount(product.expectedCount);
+      await expect(searchPage.categoryFilter).toHaveText(product.category);
+    });
+  }
+});
+```
+
+### 2. Complex Parameterized Tests
+```typescript
+// tests/e2e/checkout/checkout-scenarios.spec.ts
+import checkoutData from '@/fixtures/checkout-scenarios.json';
+
+test.describe('Checkout Scenarios @ddt', () => {
+  for (const scenario of checkoutData.scenarios) {
+    test(`should handle ${scenario.paymentMethod} checkout for ${scenario.userType}`, async ({ page }) => {
+      // Arrange
+      const checkoutPage = new CheckoutPage(page);
+      const user = testData.users[scenario.userType];
+      
+      // Act
+      await checkoutPage.goto();
+      await checkoutPage.login(user.email, user.password);
+      await checkoutPage.selectPaymentMethod(scenario.paymentMethod);
+      await checkoutPage.enterPaymentDetails(scenario.paymentDetails);
+      await checkoutPage.submitOrder();
+      
+      // Assert
+      if (scenario.expectedResult === 'success') {
+        await expect(page).toHaveURL(/success/);
+        await expect(checkoutPage.successMessage).toBeVisible();
+      } else {
+        await expect(checkoutPage.errorMessage).toContainText(scenario.expectedError);
+      }
+    });
+  }
+});
+```
+
+### 3. Cross-Product Testing
+```typescript
+// tests/e2e/api/user-permissions.spec.ts
+import permissionData from '@/fixtures/user-permissions.json';
+
+test.describe('User Permissions @ddt', () => {
+  for (const role of permissionData.roles) {
+    for (const action of permissionData.actions) {
+      test(`should ${role.name} ${action.allowed ? 'allow' : 'deny'} ${action.name}`, async ({ request }) => {
+        // Arrange
+        const userApi = new UserApiClient(request);
+        const user = await userApi.createUser({ role: role.name });
+        
+        // Act
+        const response = await userApi.performAction(user.id, action.name);
+        
+        // Assert
+        if (action.allowed) {
+          expect(response.status).toBe(200);
+        } else {
+          expect(response.status).toBe(403);
+        }
+        
+        // Cleanup
+        await userApi.deleteUser(user.id);
+      });
+    }
+  }
+});
+```
+
+---
+
+## 📊 DDT Data Structures
+
+### 1. Scenario-Based Data
+```typescript
+// fixtures/scenarios.json
+{
+  "loginScenarios": [
+    {
+      "name": "valid_credentials",
+      "email": "valid@test.com",
+      "password": "Valid123!",
+      "expected": "success",
+      "description": "Should login with valid credentials"
+    },
+    {
+      "name": "invalid_email",
+      "email": "invalid@test.com",
+      "password": "Valid123!",
+      "expected": "error",
+      "description": "Should show error for invalid email"
+    },
+    {
+      "name": "empty_password",
+      "email": "valid@test.com",
+      "password": "",
+      "expected": "validation",
+      "description": "Should show validation error for empty password"
+    }
+  ]
+}
+```
+
+### 2. Matrix-Based Data
+```typescript
+// fixtures/matrix-data.json
+{
+  "browserMatrix": {
+    "browsers": ["chrome", "firefox", "safari"],
+    "devices": ["desktop", "tablet", "mobile"],
+    "scenarios": [
+      { "name": "login", "url": "/login" },
+      { "name": "search", "url": "/search" },
+      { "name": "checkout", "url": "/checkout" }
+    ]
+  }
+}
+```
+
+### 3. Hierarchical Data
+```typescript
+// fixtures/hierarchical-data.json
+{
+  "ecommerce": {
+    "users": {
+      "admin": {
+        "email": "admin@shop.com",
+        "password": "Admin123!",
+        "permissions": ["read", "write", "delete"],
+        "scenarios": ["full_access", "user_management"]
+      },
+      "customer": {
+        "email": "customer@shop.com",
+        "password": "Customer123!",
+        "permissions": ["read"],
+        "scenarios": ["browse_products", "make_purchase"]
+      }
+    },
+    "products": {
+      "electronics": {
+        "laptop": { "name": "Gaming Laptop", "price": 1299.99 },
+        "phone": { "name": "Smartphone", "price": 699.99 }
+      },
+      "clothing": {
+        "shirt": { "name": "Cotton Shirt", "price": 29.99 },
+        "pants": { "name": "Jeans", "price": 49.99 }
+      }
+    }
+  }
+}
+```
+
+---
+
+## 🔧 DDT Utilities
+
+### Data Generator
+```typescript
+// support/utils/ddt-generator.ts
+export class DDTGenerator {
+  static generateTestMatrix<T>(data: T[]): Array<{ data: T; index: number }> {
+    return data.map((item, index) => ({ data: item, index }));
+  }
+
+  static generateCombinations<T, U>(array1: T[], array2: U[]): Array<{ first: T; second: U }> {
+    const combinations: Array<{ first: T; second: U }> = [];
+    for (const item1 of array1) {
+      for (const item2 of array2) {
+        combinations.push({ first: item1, second: item2 });
+      }
+    }
+    return combinations;
+  }
+
+  static generateRandomData<T>(template: T, count: number): T[] {
+    return Array.from({ length: count }, () => ({
+      ...template,
+      id: Math.random().toString(36).substr(2, 9),
+      timestamp: Date.now()
+    }));
+  }
+}
+```
+
+### Scenario Builder
+```typescript
+// support/utils/scenario-builder.ts
+export class ScenarioBuilder {
+  static buildLoginScenarios(): LoginScenario[] {
+    return [
+      { email: 'valid@test.com', password: 'Valid123!', expected: 'success' },
+      { email: 'invalid@test.com', password: 'Valid123!', expected: 'error' },
+      { email: 'valid@test.com', password: '', expected: 'validation' }
+    ];
+  }
+
+  static buildUserPermissionScenarios(): PermissionScenario[] {
+    const roles = ['admin', 'user', 'guest'];
+    const actions = ['read', 'write', 'delete'];
+    
+    return roles.flatMap(role => 
+      actions.map(action => ({
+        role,
+        action,
+        allowed: this.isActionAllowed(role, action)
+      }))
+    );
+  }
+
+  private static isActionAllowed(role: string, action: string): boolean {
+    const permissions = {
+      admin: ['read', 'write', 'delete'],
+      user: ['read'],
+      guest: []
+    };
+    return permissions[role]?.includes(action) || false;
+  }
+}
+```
+
+---
+
+## 🎯 DDT Best Practices
+
+### 1. Clear Test Names
+```typescript
+// ✅ CORRECT - Descriptive test names
+test(`should handle ${scenario.expected} for ${scenario.email || 'empty email'}`, async ({ page }) => {
+  // test implementation
+});
+
+// ❌ WRONG - Generic test names
+test('should test login', async ({ page }) => {
+  // test implementation
+});
+```
+
+### 2. Proper Data Validation
+```typescript
+// ✅ CORRECT - Data validation
+test.describe('Login Parameterized Tests @ddt', () => {
+  for (const scenario of testData.loginScenarios) {
+    test(`should handle ${scenario.expected} for ${scenario.email || 'empty email'}`, async ({ page }) => {
+      // Validate test data
+      expect(scenario.expected).toMatch(/^(success|error|validation)$/);
+      expect(scenario.email).toBeDefined();
+      
+      // Test implementation
+      const loginPage = new LoginPage(page);
+      await loginPage.goto();
+      await loginPage.login(scenario.email, scenario.password);
+      
+      // Assertions based on expected result
+      if (scenario.expected === 'success') {
+        await expect(page).toHaveURL(/dashboard/);
+      } else {
+        await expect(loginPage.getErrorMessage()).toBeVisible();
+      }
+    });
+  }
+});
+```
+
+### 3. Efficient Data Loading
+```typescript
+// ✅ CORRECT - Efficient data loading
+test.describe('Product Search @ddt', () => {
+  let productData: ProductData;
+
+  test.beforeAll(async () => {
+    productData = await FixtureLoader.loadProductData();
+  });
+
+  for (const product of productData.searchScenarios) {
+    test(`should search for ${product.category} products`, async ({ page }) => {
+      // Test implementation using productData
+    });
+  }
+});
+```
+
+---
+
+## 📋 DDT Checklist
+
+### ✅ Data Structure
+- [ ] **Clear data organization** with logical grouping
+- [ ] **Descriptive field names** that explain purpose
+- [ ] **Consistent data types** across all scenarios
+- [ ] **Validation data** for edge cases
+- [ ] **Environment-specific** data when needed
+
+### ✅ Test Implementation
+- [ ] **Parameterized test loops** with clear iteration
+- [ ] **Descriptive test names** that include scenario details
+- [ ] **Proper data validation** before test execution
+- [ ] **Conditional assertions** based on expected results
+- [ ] **Efficient data loading** and caching
+
+### ✅ Maintenance
+- [ ] **Easy to add new scenarios** without code changes
+- [ ] **Clear documentation** of data structure
+- [ ] **Version control** for test data changes
+- [ ] **Data validation** to prevent test failures
+- [ ] **Regular cleanup** of outdated scenarios

@@ -1,0 +1,383 @@
+---
+alwaysApply: true
+---
+
+# 🛡️ Error Handling Patterns
+
+## 🎯 Safe Page Operations with BasePage
+
+**Wrap common operations** with error handling for better debugging.
+
+### ✅ CORRECT - BasePage with Error Handling
+```typescript
+// pages/BasePage.ts
+export class BasePage {
+  constructor(protected page: Page) {}
+
+  // Wrapper with error handling
+  protected async safeClick(selector: string, options?: ClickOptions) {
+    try {
+      await this.page.click(selector, options);
+    } catch (error) {
+      throw new Error(`Failed to click "${selector}": ${error.message}`);
+    }
+  }
+
+  protected async safeFill(selector: string, value: string) {
+    try {
+      await this.page.fill(selector, value);
+    } catch (error) {
+      throw new Error(`Failed to fill "${selector}" with "${value}": ${error.message}`);
+    }
+  }
+
+  protected async safeWaitForSelector(selector: string, options?: WaitForSelectorOptions) {
+    try {
+      return await this.page.waitForSelector(selector, options);
+    } catch (error) {
+      throw new Error(`Element "${selector}" not found: ${error.message}`);
+    }
+  }
+
+  protected async safeGetText(selector: string): Promise<string> {
+    try {
+      const element = await this.page.locator(selector);
+      return await element.textContent() || '';
+    } catch (error) {
+      throw new Error(`Failed to get text from "${selector}": ${error.message}`);
+    }
+  }
+}
+
+// ✅ CORRECT - pages/LoginPage.ts extending BasePage
+export class LoginPage extends BasePage {
+  private emailInput = () => this.page.getByLabel('Email');
+  private passwordInput = () => this.page.getByLabel('Password');
+  private submitButton = () => this.page.getByRole('button', { name: 'Login' });
+
+  async login(email: string, password: string) {
+    await this.safeFill(this.emailInput().locator('input').toString(), email);
+    await this.safeFill(this.passwordInput().locator('input').toString(), password);
+    await this.safeClick(this.submitButton().toString());
+  }
+}
+```
+
+---
+
+## 🔄 Retry Mechanisms for Flaky Elements
+
+**Implement retry logic** for elements that may take time to appear.
+
+### ✅ CORRECT - Retry Helper
+```typescript
+// support/utils/retry-helper.ts
+export async function retryOperation<T>(
+  operation: () => Promise<T>,
+  maxRetries: number = 3,
+  delay: number = 1000
+): Promise<T> {
+  let lastError: Error;
+  
+  for (let attempt = 1; attempt <= maxRetries; attempt++) {
+    try {
+      return await operation();
+    } catch (error) {
+      lastError = error as Error;
+      
+      if (attempt === maxRetries) {
+        throw new Error(`Operation failed after ${maxRetries} attempts: ${lastError.message}`);
+      }
+      
+      await new Promise(resolve => setTimeout(resolve, delay));
+    }
+  }
+  
+  throw lastError!;
+}
+
+// ✅ CORRECT - Using retry helper
+test('should handle flaky element loading', async ({ page }) => {
+  await page.goto('/dashboard');
+  
+  // Retry mechanism for potentially flaky element
+  await retryOperation(async () => {
+    const element = page.getByTestId('dynamic-content');
+    await expect(element).toBeVisible();
+    return element;
+  });
+});
+```
+
+---
+
+## 🔧 API Error Handling
+
+**Comprehensive error handling** for API requests.
+
+### ✅ CORRECT - BaseApiClient with Error Handling
+```typescript
+// support/api-client/BaseApiClient.ts
+export class BaseApiClient {
+  constructor(protected request: APIRequestContext) {}
+
+  protected async handleApiResponse<T>(response: APIResponse): Promise<T> {
+    if (!response.ok()) {
+      const errorBody = await response.text().catch(() => 'Unable to parse error response');
+      throw new Error(`API Error ${response.status()}: ${errorBody}`);
+    }
+
+    try {
+      return await response.json();
+    } catch (error) {
+      throw new Error(`Failed to parse JSON response: ${error.message}`);
+    }
+  }
+
+  protected async safeApiCall<T>(
+    apiCall: () => Promise<APIResponse>,
+    operation: string
+  ): Promise<T> {
+    try {
+      const response = await apiCall();
+      return await this.handleApiResponse<T>(response);
+    } catch (error) {
+      throw new Error(`API ${operation} failed: ${error.message}`);
+    }
+  }
+}
+
+// ✅ CORRECT - UserApiClient with error handling
+export class UserApiClient extends BaseApiClient {
+  async getUser(userId: string) {
+    return this.safeApiCall(
+      () => this.request.get(`/api/users/${userId}`),
+      `getUser(${userId})`
+    );
+  }
+
+  async createUser(userData: any) {
+    return this.safeApiCall(
+      () => this.request.post('/api/users', { data: userData }),
+      'createUser'
+    );
+  }
+}
+```
+
+---
+
+## 🎯 Test-Level Error Recovery
+
+**Implement recovery strategies** for test failures.
+
+### ✅ CORRECT - Test with Recovery Mechanism
+```typescript
+test('should handle network failures gracefully', async ({ page }) => {
+  // Set up network failure simulation
+  await page.route('**/api/**', route => {
+    if (Math.random() < 0.3) { // 30% chance of failure
+      route.abort('failed');
+    } else {
+      route.continue();
+    }
+  });
+
+  await page.goto('/dashboard');
+
+  // Try to load data with fallback
+  try {
+    await page.getByTestId('user-data').waitFor({ timeout: 5000 });
+  } catch (error) {
+    // Recovery: Refresh page and try again
+    console.log('Initial load failed, attempting recovery...');
+    await page.reload();
+    await page.getByTestId('user-data').waitFor({ timeout: 10000 });
+  }
+
+  // Continue with test
+  await expect(page.getByTestId('user-data')).toBeVisible();
+});
+```
+
+---
+
+## 🔍 Custom Error Messages
+
+**Provide meaningful error messages** for better debugging.
+
+### ✅ CORRECT - Custom Error Messages
+```typescript
+test('should validate user profile completeness', async ({ page }) => {
+  await page.goto('/profile');
+  
+  const requiredFields = [
+    { selector: '[data-testid="first-name"]', name: 'First Name' },
+    { selector: '[data-testid="last-name"]', name: 'Last Name' },
+    { selector: '[data-testid="email"]', name: 'Email' },
+    { selector: '[data-testid="phone"]', name: 'Phone' }
+  ];
+
+  for (const field of requiredFields) {
+    try {
+      await expect(page.locator(field.selector)).toBeVisible();
+    } catch (error) {
+      throw new Error(`Required field "${field.name}" is missing from user profile`);
+    }
+  }
+});
+```
+
+---
+
+## 🎯 Error Handling Best Practices
+
+### ✅ DO
+- **Use soft assertions** for non-critical validations
+- **Implement retry mechanisms** for flaky operations
+- **Provide meaningful error messages** with context
+- **Extend BasePage** for consistent error handling
+- **Handle API errors** with proper status code checking
+- **Use try-catch blocks** for operations that might fail
+
+### ❌ DON'T
+```typescript
+// ❌ WRONG - Generic error messages
+try {
+  await page.click('.button');
+} catch (error) {
+  throw new Error('Click failed'); // No context
+}
+
+// ❌ WRONG - No error handling
+await page.click('.button'); // Will throw cryptic Playwright errors
+
+// ❌ WRONG - Hard waits instead of proper waiting
+await page.waitForTimeout(5000); // Unreliable
+```
+
+### ✅ CORRECT
+```typescript
+// ✅ CORRECT - Meaningful error messages
+try {
+  await page.click('.submit-button');
+} catch (error) {
+  throw new Error(`Failed to click submit button on ${page.url()}: ${error.message}`);
+}
+
+// ✅ CORRECT - Proper error handling with context
+await expect(page.getByRole('button', { name: 'Submit' })).toBeVisible();
+await page.getByRole('button', { name: 'Submit' }).click();
+
+// ✅ CORRECT - Smart waiting
+await page.getByRole('button', { name: 'Submit' }).waitFor({ state: 'visible' });
+```
+
+---
+
+## 🔧 Error Handling Utilities
+
+### Error Handler
+```typescript
+// support/utils/error-handler.ts
+export class ErrorHandler {
+  static async withRetry<T>(
+    operation: () => Promise<T>,
+    maxRetries: number = 3,
+    delay: number = 1000
+  ): Promise<T> {
+    let lastError: Error;
+    
+    for (let attempt = 1; attempt <= maxRetries; attempt++) {
+      try {
+        return await operation();
+      } catch (error) {
+        lastError = error as Error;
+        
+        if (attempt === maxRetries) {
+          throw new Error(`Operation failed after ${maxRetries} attempts: ${lastError.message}`);
+        }
+        
+        await new Promise(resolve => setTimeout(resolve, delay));
+      }
+    }
+    
+    throw lastError!;
+  }
+
+  static async withTimeout<T>(
+    operation: () => Promise<T>,
+    timeout: number = 10000
+  ): Promise<T> {
+    return Promise.race([
+      operation(),
+      new Promise<never>((_, reject) => 
+        setTimeout(() => reject(new Error(`Operation timed out after ${timeout}ms`)), timeout)
+      )
+    ]);
+  }
+
+  static async withRecovery<T>(
+    operation: () => Promise<T>,
+    recovery: () => Promise<T>
+  ): Promise<T> {
+    try {
+      return await operation();
+    } catch (error) {
+      console.log('Primary operation failed, attempting recovery...');
+      return await recovery();
+    }
+  }
+}
+```
+
+### Usage in Tests
+```typescript
+// tests/e2e/error-handling.spec.ts
+import { ErrorHandler } from '@/support/utils/error-handler';
+
+test('should handle flaky operations', async ({ page }) => {
+  await page.goto('/dashboard');
+  
+  // Use error handler with retry
+  await ErrorHandler.withRetry(async () => {
+    const element = page.getByTestId('dynamic-content');
+    await expect(element).toBeVisible();
+    return element;
+  });
+});
+
+test('should handle timeouts', async ({ page }) => {
+  await page.goto('/slow-page');
+  
+  // Use error handler with timeout
+  await ErrorHandler.withTimeout(async () => {
+    await page.getByTestId('slow-content').waitFor({ state: 'visible' });
+  }, 15000);
+});
+```
+
+---
+
+## 📋 Error Handling Checklist
+
+### ✅ Error Prevention
+- [ ] **Proper element waiting** before interactions
+- [ ] **Retry mechanisms** for flaky operations
+- [ ] **Timeout handling** for slow operations
+- [ ] **Network failure recovery** strategies
+- [ ] **Data validation** before operations
+
+### ✅ Error Handling
+- [ ] **Try-catch blocks** for operations that might fail
+- [ ] **Meaningful error messages** with context
+- [ ] **Proper error propagation** and handling
+- [ ] **Recovery strategies** for common failures
+- [ ] **Logging and debugging** information
+
+### ✅ Error Recovery
+- [ ] **Fallback mechanisms** for critical operations
+- [ ] **Retry logic** with exponential backoff
+- [ ] **Alternative approaches** when primary fails
+- [ ] **Cleanup procedures** after failures
+- [ ] **Test continuation** strategies

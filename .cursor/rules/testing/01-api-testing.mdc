@@ -1,0 +1,451 @@
+---
+alwaysApply: true
+---
+
+# 🔌 API Testing Patterns
+
+## 🎯 API Client Pattern
+
+**Create reusable API clients** with Playwright request context.
+
+### ✅ CORRECT - API Client Implementation
+```typescript
+// support/api-client/UserApiClient.ts
+import { APIRequestContext } from '@playwright/test';
+
+export class UserApiClient {
+  constructor(private request: APIRequestContext) {}
+
+  async getUser(userId: string) {
+    const response = await this.request.get(`/api/users/${userId}`);
+    return response.json();
+  }
+
+  async createUser(userData: any) {
+    const response = await this.request.post('/api/users', {
+      data: userData
+    });
+    return response.json();
+  }
+
+  async deleteUser(userId: string) {
+    return await this.request.delete(`/api/users/${userId}`);
+  }
+}
+
+// tests/api/users/user-crud.spec.ts
+import { test, expect } from '@playwright/test';
+import { UserApiClient } from '@/support/api-client/UserApiClient';
+
+test.describe('User API @api', () => {
+  let userApi: UserApiClient;
+
+  test.beforeAll(async ({ request }) => {
+    userApi = new UserApiClient(request);
+  });
+
+  test('should create and retrieve user', async () => {
+    // Arrange
+    const newUser = { name: 'John', email: 'john@test.com' };
+    
+    // Act
+    const created = await userApi.createUser(newUser);
+    const retrieved = await userApi.getUser(created.id);
+    
+    // Assert
+    expect(retrieved).toMatchObject(newUser);
+    
+    // Cleanup
+    await userApi.deleteUser(created.id);
+  });
+});
+```
+
+---
+
+## 🔧 Base API Client
+
+### BaseApiClient with Error Handling
+```typescript
+// support/api-client/BaseApiClient.ts
+export class BaseApiClient {
+  constructor(protected request: APIRequestContext) {}
+
+  protected async handleApiResponse<T>(response: APIResponse): Promise<T> {
+    if (!response.ok()) {
+      const errorBody = await response.text().catch(() => 'Unable to parse error response');
+      throw new Error(`API Error ${response.status()}: ${errorBody}`);
+    }
+
+    try {
+      return await response.json();
+    } catch (error) {
+      throw new Error(`Failed to parse JSON response: ${error.message}`);
+    }
+  }
+
+  protected async safeApiCall<T>(
+    apiCall: () => Promise<APIResponse>,
+    operation: string
+  ): Promise<T> {
+    try {
+      const response = await apiCall();
+      return await this.handleApiResponse<T>(response);
+    } catch (error) {
+      throw new Error(`API ${operation} failed: ${error.message}`);
+    }
+  }
+}
+
+// ✅ CORRECT - UserApiClient with error handling
+export class UserApiClient extends BaseApiClient {
+  async getUser(userId: string) {
+    return this.safeApiCall(
+      () => this.request.get(`/api/users/${userId}`),
+      `getUser(${userId})`
+    );
+  }
+
+  async createUser(userData: any) {
+    return this.safeApiCall(
+      () => this.request.post('/api/users', { data: userData }),
+      'createUser'
+    );
+  }
+}
+```
+
+---
+
+## 🎯 API Assertions
+
+### Comprehensive API Assertions
+```typescript
+// ✅ CORRECT - Comprehensive API assertions
+test('should return user details', async ({ request }) => {
+  const response = await request.get('/api/users/123');
+  
+  // Status code
+  expect(response.ok()).toBeTruthy();
+  expect(response.status()).toBe(200);
+  
+  // Headers
+  expect(response.headers()['content-type']).toContain('application/json');
+  
+  // Body structure
+  const body = await response.json();
+  expect(body).toHaveProperty('id');
+  expect(body).toHaveProperty('email');
+  
+  // Data validation
+  expect(body.email).toMatch(/^[\w-\.]+@([\w-]+\.)+[\w-]{2,4}$/);
+});
+```
+
+### API Response Validation
+```typescript
+// support/utils/api-validator.ts
+export class ApiValidator {
+  static async validateUserResponse(response: APIResponse): Promise<User> {
+    expect(response.status()).toBe(200);
+    expect(response.headers()['content-type']).toContain('application/json');
+    
+    const user = await response.json();
+    
+    // Validate required fields
+    expect(user).toHaveProperty('id');
+    expect(user).toHaveProperty('email');
+    expect(user).toHaveProperty('name');
+    
+    // Validate data types
+    expect(typeof user.id).toBe('string');
+    expect(typeof user.email).toBe('string');
+    expect(typeof user.name).toBe('string');
+    
+    // Validate email format
+    expect(user.email).toMatch(/^[\w-\.]+@([\w-]+\.)+[\w-]{2,4}$/);
+    
+    return user;
+  }
+
+  static async validateErrorResponse(response: APIResponse, expectedStatus: number): Promise<void> {
+    expect(response.status()).toBe(expectedStatus);
+    expect(response.headers()['content-type']).toContain('application/json');
+    
+    const error = await response.json();
+    expect(error).toHaveProperty('message');
+    expect(error).toHaveProperty('code');
+  }
+}
+```
+
+---
+
+## 🔄 API Test Patterns
+
+### 1. CRUD Operations
+```typescript
+// tests/api/users/user-crud.spec.ts
+test.describe('User CRUD Operations @api', () => {
+  let userApi: UserApiClient;
+  let createdUserId: string;
+
+  test.beforeAll(async ({ request }) => {
+    userApi = new UserApiClient(request);
+  });
+
+  test('should create user', async () => {
+    // Arrange
+    const newUser = { name: 'John Doe', email: 'john@test.com' };
+    
+    // Act
+    const response = await userApi.createUser(newUser);
+    
+    // Assert
+    expect(response).toMatchObject(newUser);
+    expect(response.id).toBeDefined();
+    createdUserId = response.id;
+  });
+
+  test('should retrieve user', async () => {
+    // Act
+    const user = await userApi.getUser(createdUserId);
+    
+    // Assert
+    expect(user.id).toBe(createdUserId);
+    expect(user.name).toBe('John Doe');
+    expect(user.email).toBe('john@test.com');
+  });
+
+  test('should update user', async () => {
+    // Arrange
+    const updateData = { name: 'John Smith' };
+    
+    // Act
+    const updatedUser = await userApi.updateUser(createdUserId, updateData);
+    
+    // Assert
+    expect(updatedUser.name).toBe('John Smith');
+    expect(updatedUser.email).toBe('john@test.com');
+  });
+
+  test('should delete user', async () => {
+    // Act
+    await userApi.deleteUser(createdUserId);
+    
+    // Assert
+    const response = await userApi.getUser(createdUserId);
+    expect(response.status).toBe(404);
+  });
+});
+```
+
+### 2. Authentication Testing
+```typescript
+// tests/api/auth/auth.spec.ts
+test.describe('Authentication API @api', () => {
+  test('should authenticate with valid credentials', async ({ request }) => {
+    // Arrange
+    const credentials = { email: 'test@example.com', password: 'password123' };
+    
+    // Act
+    const response = await request.post('/api/auth/login', { data: credentials });
+    
+    // Assert
+    expect(response.status()).toBe(200);
+    const authData = await response.json();
+    expect(authData).toHaveProperty('token');
+    expect(authData).toHaveProperty('user');
+  });
+
+  test('should reject invalid credentials', async ({ request }) => {
+    // Arrange
+    const credentials = { email: 'invalid@example.com', password: 'wrong' };
+    
+    // Act
+    const response = await request.post('/api/auth/login', { data: credentials });
+    
+    // Assert
+    expect(response.status()).toBe(401);
+    const error = await response.json();
+    expect(error.message).toContain('Invalid credentials');
+  });
+});
+```
+
+### 3. Pagination Testing
+```typescript
+// tests/api/products/products-pagination.spec.ts
+test.describe('Products Pagination @api', () => {
+  test('should return paginated results', async ({ request }) => {
+    // Act
+    const response = await request.get('/api/products?page=1&limit=10');
+    
+    // Assert
+    expect(response.status()).toBe(200);
+    const data = await response.json();
+    
+    expect(data).toHaveProperty('products');
+    expect(data).toHaveProperty('pagination');
+    expect(data.pagination).toHaveProperty('page', 1);
+    expect(data.pagination).toHaveProperty('limit', 10);
+    expect(data.pagination).toHaveProperty('total');
+    expect(data.products).toHaveLength(10);
+  });
+
+  test('should handle invalid pagination parameters', async ({ request }) => {
+    // Act
+    const response = await request.get('/api/products?page=-1&limit=0');
+    
+    // Assert
+    expect(response.status()).toBe(400);
+    const error = await response.json();
+    expect(error.message).toContain('Invalid pagination parameters');
+  });
+});
+```
+
+---
+
+## 🔧 API Testing Utilities
+
+### Request Builder
+```typescript
+// support/utils/request-builder.ts
+export class RequestBuilder {
+  constructor(private request: APIRequestContext) {}
+
+  async get(url: string, options: RequestOptions = {}) {
+    return this.request.get(url, {
+      ...options,
+      headers: { 'Content-Type': 'application/json', ...options.headers }
+    });
+  }
+
+  async post(url: string, data: any, options: RequestOptions = {}) {
+    return this.request.post(url, {
+      data,
+      ...options,
+      headers: { 'Content-Type': 'application/json', ...options.headers }
+    });
+  }
+
+  async put(url: string, data: any, options: RequestOptions = {}) {
+    return this.request.put(url, {
+      data,
+      ...options,
+      headers: { 'Content-Type': 'application/json', ...options.headers }
+    });
+  }
+
+  async delete(url: string, options: RequestOptions = {}) {
+    return this.request.delete(url, {
+      ...options,
+      headers: { 'Content-Type': 'application/json', ...options.headers }
+    });
+  }
+}
+```
+
+### API Test Helper
+```typescript
+// support/utils/api-test-helper.ts
+export class ApiTestHelper {
+  static async createTestUser(request: APIRequestContext): Promise<User> {
+    const userApi = new UserApiClient(request);
+    return await userApi.createUser({
+      name: `Test User ${Date.now()}`,
+      email: `test${Date.now()}@example.com`,
+      password: 'Test123!'
+    });
+  }
+
+  static async deleteTestUser(request: APIRequestContext, userId: string): Promise<void> {
+    const userApi = new UserApiClient(request);
+    await userApi.deleteUser(userId);
+  }
+
+  static async authenticateUser(request: APIRequestContext, email: string, password: string): Promise<string> {
+    const response = await request.post('/api/auth/login', {
+      data: { email, password }
+    });
+    
+    const authData = await response.json();
+    return authData.token;
+  }
+}
+```
+
+---
+
+## 🎯 API Testing Best Practices
+
+### ✅ DO
+- **Use API clients** for reusable request logic
+- **Validate response structure** and data types
+- **Test error scenarios** with invalid data
+- **Use proper HTTP status codes** in assertions
+- **Clean up test data** after each test
+- **Test authentication** and authorization
+
+### ❌ DON'T
+```typescript
+// ❌ WRONG - Direct request calls in tests
+test('should create user', async ({ request }) => {
+  const response = await request.post('/api/users', {
+    data: { name: 'John', email: 'john@test.com' }
+  });
+  // No validation, no cleanup
+});
+
+// ❌ WRONG - No error handling
+test('should handle errors', async ({ request }) => {
+  const response = await request.get('/api/users/invalid-id');
+  // No status code validation
+});
+```
+
+### ✅ CORRECT
+```typescript
+// ✅ CORRECT - Proper API testing
+test('should create user', async ({ request }) => {
+  const userApi = new UserApiClient(request);
+  
+  try {
+    const user = await userApi.createUser({
+      name: 'John',
+      email: 'john@test.com'
+    });
+    
+    expect(user.id).toBeDefined();
+    expect(user.name).toBe('John');
+  } finally {
+    await userApi.deleteUser(user.id);
+  }
+});
+```
+
+---
+
+## 📋 API Testing Checklist
+
+### ✅ Test Structure
+- [ ] **API client classes** for each resource
+- [ ] **Base API client** with common functionality
+- [ ] **Proper error handling** and validation
+- [ ] **Cleanup procedures** for test data
+- [ ] **Authentication testing** when required
+
+### ✅ Assertions
+- [ ] **HTTP status codes** validation
+- [ ] **Response headers** validation
+- [ ] **Response body structure** validation
+- [ ] **Data type validation** for fields
+- [ ] **Business logic validation** for data
+
+### ✅ Test Coverage
+- [ ] **CRUD operations** for all resources
+- [ ] **Error scenarios** with invalid data
+- [ ] **Authentication** and authorization
+- [ ] **Pagination** and filtering
+- [ ] **Edge cases** and boundary conditions

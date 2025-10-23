@@ -1,0 +1,334 @@
+---
+alwaysApply: true
+---
+
+# 🎯 Assertions & Expectations
+
+## 🎯 Soft Assertions (Continue on Failure)
+
+**Use soft assertions** for non-critical validations that shouldn't stop test execution.
+
+### ✅ CORRECT - Soft Assertions for Multiple Validations
+```typescript
+test('should validate multiple elements', async ({ page }) => {
+  await page.goto('/dashboard');
+  
+  // Test continues even if these fail
+  await expect.soft(page.getByText('Welcome')).toBeVisible();
+  await expect.soft(page.getByRole('navigation')).toBeVisible();
+  await expect.soft(page.getByRole('footer')).toBeVisible();
+  
+  // Final critical assertion
+  await expect(page.getByRole('main')).toBeVisible();
+});
+```
+
+### ✅ CORRECT - Soft Assertions in Loops
+```typescript
+test('should validate all product cards', async ({ page }) => {
+  await page.goto('/products');
+  
+  const productCards = page.getByTestId('product-card');
+  const count = await productCards.count();
+  
+  for (let i = 0; i < count; i++) {
+    const card = productCards.nth(i);
+    
+    // Non-critical validations - test continues if any fail
+    await expect.soft(card.getByTestId('product-name')).toBeVisible();
+    await expect.soft(card.getByTestId('product-price')).toBeVisible();
+    await expect.soft(card.getByTestId('product-image')).toBeVisible();
+  }
+  
+  // Critical assertion - test fails if this fails
+  await expect(productCards).toHaveCount(5);
+});
+```
+
+---
+
+## 🔍 Assertion Patterns
+
+### 1. Element Visibility Assertions
+```typescript
+// ✅ CORRECT - Element visibility
+await expect(page.getByRole('button', { name: 'Submit' })).toBeVisible();
+await expect(page.getByText('Success message')).toBeVisible();
+await expect(page.getByTestId('loading-spinner')).toBeHidden();
+
+// ✅ CORRECT - Element state
+await expect(page.getByRole('button', { name: 'Submit' })).toBeEnabled();
+await expect(page.getByRole('button', { name: 'Submit' })).toBeDisabled();
+await expect(page.getByRole('checkbox')).toBeChecked();
+await expect(page.getByRole('checkbox')).toBeUnchecked();
+```
+
+### 2. Text Content Assertions
+```typescript
+// ✅ CORRECT - Text content
+await expect(page.getByText('Welcome to our app')).toHaveText('Welcome to our app');
+await expect(page.getByRole('heading', { name: 'Dashboard' })).toContainText('Dashboard');
+await expect(page.getByTestId('user-name')).toHaveText(/John Doe/);
+
+// ✅ CORRECT - Input values
+await expect(page.getByLabel('Email')).toHaveValue('test@example.com');
+await expect(page.getByLabel('Password')).toHaveValue('');
+```
+
+### 3. URL and Navigation Assertions
+```typescript
+// ✅ CORRECT - URL assertions
+await expect(page).toHaveURL('/dashboard');
+await expect(page).toHaveURL(/dashboard/);
+await expect(page).toHaveURL(new RegExp('dashboard'));
+
+// ✅ CORRECT - Title assertions
+await expect(page).toHaveTitle('Dashboard - My App');
+await expect(page).toHaveTitle(/Dashboard/);
+```
+
+### 4. Count and Collection Assertions
+```typescript
+// ✅ CORRECT - Count assertions
+await expect(page.getByTestId('product-card')).toHaveCount(5);
+await expect(page.getByRole('listitem')).toHaveCount(3);
+await expect(page.getByTestId('error-message')).toHaveCount(0);
+
+// ✅ CORRECT - Collection assertions
+const productCards = page.getByTestId('product-card');
+await expect(productCards).toHaveCount(5);
+await expect(productCards.first()).toBeVisible();
+await expect(productCards.last()).toBeVisible();
+```
+
+---
+
+## 🎯 Custom Assertions
+
+### Custom Assertion Helpers
+```typescript
+// support/utils/assertion-helpers.ts
+export class AssertionHelpers {
+  static async expectElementToBeVisible(page: Page, selector: string) {
+    await expect(page.locator(selector)).toBeVisible();
+  }
+
+  static async expectElementToHaveText(page: Page, selector: string, text: string) {
+    await expect(page.locator(selector)).toHaveText(text);
+  }
+
+  static async expectElementToContainText(page: Page, selector: string, text: string) {
+    await expect(page.locator(selector)).toContainText(text);
+  }
+
+  static async expectElementToHaveValue(page: Page, selector: string, value: string) {
+    await expect(page.locator(selector)).toHaveValue(value);
+  }
+
+  static async expectElementToBeEnabled(page: Page, selector: string) {
+    await expect(page.locator(selector)).toBeEnabled();
+  }
+
+  static async expectElementToBeDisabled(page: Page, selector: string) {
+    await expect(page.locator(selector)).toBeDisabled();
+  }
+}
+```
+
+### Usage in Tests
+```typescript
+// tests/e2e/login.spec.ts
+import { AssertionHelpers } from '@/support/utils/assertion-helpers';
+
+test('should validate login form', async ({ page }) => {
+  await page.goto('/login');
+  
+  // Use custom assertion helpers
+  await AssertionHelpers.expectElementToBeVisible(page, '[data-testid="email-input"]');
+  await AssertionHelpers.expectElementToBeVisible(page, '[data-testid="password-input"]');
+  await AssertionHelpers.expectElementToBeEnabled(page, '[data-testid="submit-button"]');
+});
+```
+
+---
+
+## 🔧 Advanced Assertion Patterns
+
+### 1. Conditional Assertions
+```typescript
+// ✅ CORRECT - Conditional assertions
+test('should handle different user types', async ({ page }) => {
+  await page.goto('/dashboard');
+  
+  const userType = await page.getByTestId('user-type').textContent();
+  
+  if (userType === 'admin') {
+    await expect(page.getByTestId('admin-panel')).toBeVisible();
+    await expect(page.getByTestId('user-management')).toBeVisible();
+  } else {
+    await expect(page.getByTestId('admin-panel')).toBeHidden();
+    await expect(page.getByTestId('user-dashboard')).toBeVisible();
+  }
+});
+```
+
+### 2. Timeout Assertions
+```typescript
+// ✅ CORRECT - Timeout assertions
+test('should wait for element to appear', async ({ page }) => {
+  await page.goto('/dashboard');
+  
+  // Wait for element to appear with custom timeout
+  await expect(page.getByTestId('dynamic-content')).toBeVisible({ timeout: 10000 });
+  
+  // Wait for element to disappear
+  await expect(page.getByTestId('loading-spinner')).toBeHidden({ timeout: 5000 });
+});
+```
+
+### 3. Multiple Element Assertions
+```typescript
+// ✅ CORRECT - Multiple element assertions
+test('should validate all form fields', async ({ page }) => {
+  await page.goto('/registration');
+  
+  const requiredFields = [
+    'first-name',
+    'last-name',
+    'email',
+    'password',
+    'confirm-password'
+  ];
+
+  for (const field of requiredFields) {
+    await expect(page.getByTestId(field)).toBeVisible();
+    await expect(page.getByTestId(field)).toBeEnabled();
+  }
+});
+```
+
+---
+
+## 🎯 Assertion Best Practices
+
+### ✅ DO
+- **Use soft assertions** for non-critical validations
+- **Provide meaningful error messages** when assertions fail
+- **Use appropriate timeouts** for dynamic content
+- **Validate element states** (enabled/disabled, checked/unchecked)
+- **Test both positive and negative** scenarios
+- **Use regex patterns** for flexible text matching
+
+### ❌ DON'T
+```typescript
+// ❌ WRONG - Hard assertions for non-critical elements
+test('should validate page elements', async ({ page }) => {
+  await page.goto('/dashboard');
+  
+  // Test fails if any of these fail
+  await expect(page.getByText('Welcome')).toBeVisible();
+  await expect(page.getByRole('navigation')).toBeVisible();
+  await expect(page.getByRole('footer')).toBeVisible();
+});
+
+// ❌ WRONG - No timeout for dynamic content
+test('should wait for content', async ({ page }) => {
+  await page.goto('/dashboard');
+  
+  // May fail if content loads slowly
+  await expect(page.getByTestId('dynamic-content')).toBeVisible();
+});
+```
+
+### ✅ CORRECT
+```typescript
+// ✅ CORRECT - Soft assertions with timeouts
+test('should validate page elements', async ({ page }) => {
+  await page.goto('/dashboard');
+  
+  // Non-critical validations with soft assertions
+  await expect.soft(page.getByText('Welcome')).toBeVisible();
+  await expect.soft(page.getByRole('navigation')).toBeVisible();
+  await expect.soft(page.getByRole('footer')).toBeVisible();
+  
+  // Critical assertion with timeout
+  await expect(page.getByTestId('main-content')).toBeVisible({ timeout: 10000 });
+});
+```
+
+---
+
+## 🔧 Assertion Utilities
+
+### Assertion Builder
+```typescript
+// support/utils/assertion-builder.ts
+export class AssertionBuilder {
+  constructor(private page: Page) {}
+
+  expectElement(selector: string) {
+    return {
+      toBeVisible: () => expect(this.page.locator(selector)).toBeVisible(),
+      toBeHidden: () => expect(this.page.locator(selector)).toBeHidden(),
+      toHaveText: (text: string) => expect(this.page.locator(selector)).toHaveText(text),
+      toContainText: (text: string) => expect(this.page.locator(selector)).toContainText(text),
+      toHaveValue: (value: string) => expect(this.page.locator(selector)).toHaveValue(value),
+      toBeEnabled: () => expect(this.page.locator(selector)).toBeEnabled(),
+      toBeDisabled: () => expect(this.page.locator(selector)).toBeDisabled()
+    };
+  }
+
+  expectRole(role: string, options?: { name?: string }) {
+    return {
+      toBeVisible: () => expect(this.page.getByRole(role, options)).toBeVisible(),
+      toBeHidden: () => expect(this.page.getByRole(role, options)).toBeHidden(),
+      toHaveText: (text: string) => expect(this.page.getByRole(role, options)).toHaveText(text),
+      toContainText: (text: string) => expect(this.page.getByRole(role, options)).toContainText(text)
+    };
+  }
+}
+```
+
+### Usage in Tests
+```typescript
+// tests/e2e/login.spec.ts
+import { AssertionBuilder } from '@/support/utils/assertion-builder';
+
+test('should validate login form', async ({ page }) => {
+  await page.goto('/login');
+  
+  const assertions = new AssertionBuilder(page);
+  
+  // Use assertion builder
+  await assertions.expectElement('[data-testid="email-input"]').toBeVisible();
+  await assertions.expectElement('[data-testid="password-input"]').toBeVisible();
+  await assertions.expectRole('button', { name: 'Login' }).toBeEnabled();
+});
+```
+
+---
+
+## 📋 Assertions Checklist
+
+### ✅ Assertion Types
+- [ ] **Element visibility** assertions (visible/hidden)
+- [ ] **Text content** assertions (exact/partial)
+- [ ] **Input value** assertions
+- [ ] **Element state** assertions (enabled/disabled, checked/unchecked)
+- [ ] **URL and title** assertions
+- [ ] **Count and collection** assertions
+
+### ✅ Best Practices
+- [ ] **Soft assertions** for non-critical validations
+- [ ] **Appropriate timeouts** for dynamic content
+- [ ] **Meaningful error messages** when assertions fail
+- [ ] **Both positive and negative** test scenarios
+- [ ] **Regex patterns** for flexible text matching
+- [ ] **Custom assertion helpers** for reusable patterns
+
+### ✅ Error Handling
+- [ ] **Proper error messages** for failed assertions
+- [ ] **Timeout handling** for slow-loading content
+- [ ] **Conditional assertions** based on page state
+- [ ] **Multiple element validation** with loops
+- [ ] **Assertion utilities** for common patterns

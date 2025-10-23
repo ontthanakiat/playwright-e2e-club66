@@ -1,0 +1,385 @@
+---
+alwaysApply: true
+---
+
+# 🚫 Anti-Patterns (NEVER DO THIS)
+
+## 🚫 Hard Waits
+
+### ❌ NEVER use arbitrary waits
+```typescript
+// ❌ WRONG - Hard waits
+await page.waitForTimeout(5000);
+await page.waitForTimeout(10000);
+```
+
+### ✅ ALWAYS use smart waits
+```typescript
+// ✅ CORRECT - Smart waits
+await page.waitForLoadState('networkidle');
+await expect(page.locator('.spinner')).toHaveCount(0);
+await page.getByRole('button', { name: 'Submit' }).waitFor({ state: 'visible' });
+```
+
+---
+
+## 🚫 Hardcoded URLs
+
+### ❌ NEVER hardcode URLs
+```typescript
+// ❌ WRONG - Hardcoded URLs
+await page.goto('https://staging.example.com/login');
+await page.goto('https://dev.example.com/dashboard');
+```
+
+### ✅ ALWAYS use environment variables
+```typescript
+// ✅ CORRECT - Environment variables
+await page.goto('/login'); // Uses baseURL from config
+await page.goto(process.env.BASE_URL + '/login');
+```
+
+---
+
+## 🚫 Commented Code
+
+### ❌ NEVER commit commented code
+```typescript
+// ❌ WRONG - Commented code
+// await page.click('.old-selector');
+// const oldVariable = 'unused';
+// await page.waitForTimeout(5000);
+```
+
+### ✅ Remove it - use git history if needed
+```typescript
+// ✅ CORRECT - Clean code
+await page.click('.new-selector');
+const newVariable = 'used';
+await page.waitForLoadState('networkidle');
+```
+
+---
+
+## 🚫 Copy-Paste Tests
+
+### ❌ NEVER duplicate test logic
+```typescript
+// ❌ WRONG - Duplicate test logic
+test('test 1', async ({ page }) => {
+  await page.goto('/product/1');
+  await page.click('button');
+  await page.waitForLoadState('networkidle');
+  await expect(page.getByText('Success')).toBeVisible();
+  // ... 20 lines of code
+});
+
+test('test 2', async ({ page }) => {
+  await page.goto('/product/2');
+  await page.click('button');
+  await page.waitForLoadState('networkidle');
+  await expect(page.getByText('Success')).toBeVisible();
+  // ... same 20 lines
+});
+```
+
+### ✅ ALWAYS use helper functions or fixtures
+```typescript
+// ✅ CORRECT - Reusable helper functions
+const verifyProductPurchase = async (page: Page, productId: string) => {
+  await page.goto(`/product/${productId}`);
+  await page.click('button');
+  await page.waitForLoadState('networkidle');
+  await expect(page.getByText('Success')).toBeVisible();
+};
+
+test('test 1', async ({ page }) => {
+  await verifyProductPurchase(page, '1');
+});
+
+test('test 2', async ({ page }) => {
+  await verifyProductPurchase(page, '2');
+});
+```
+
+---
+
+## 🚫 Direct Page Interactions in Tests
+
+### ❌ NEVER use direct page interactions
+```typescript
+// ❌ WRONG - Direct page interactions
+test('bad test', async ({ page }) => {
+  await page.goto('/login');
+  await page.fill('#email', 'test@test.com');
+  await page.click('button[type="submit"]');
+  await page.waitForURL(/dashboard/);
+});
+```
+
+### ✅ ALWAYS use Page Object Model
+```typescript
+// ✅ CORRECT - Page Object Model
+test('good test', async ({ page }) => {
+  const loginPage = new LoginPage(page);
+  await loginPage.goto();
+  await loginPage.login('test@test.com', 'password');
+  await expect(page).toHaveURL(/dashboard/);
+});
+```
+
+---
+
+## 🚫 Fragile Selectors
+
+### ❌ NEVER use fragile selectors
+```typescript
+// ❌ WRONG - Fragile selectors
+private submitButton = () => this.page.locator('button.submit-btn');
+private emailInput = () => this.page.locator('#email-input');
+private productList = () => this.page.locator('.product-list');
+private userRow = () => this.page.locator('tr:nth-child(2)');
+```
+
+### ✅ ALWAYS use semantic selectors
+```typescript
+// ✅ CORRECT - Semantic selectors
+private submitButton = () => this.page.getByRole('button', { name: 'Submit' });
+private emailInput = () => this.page.getByLabel('Email address');
+private productList = () => this.page.getByTestId('product-list');
+private userRow = () => this.page.getByTestId('user-row');
+```
+
+---
+
+## 🚫 Generic Error Messages
+
+### ❌ NEVER use generic error messages
+```typescript
+// ❌ WRONG - Generic error messages
+try {
+  await page.click('.button');
+} catch (error) {
+  throw new Error('Click failed'); // No context
+}
+
+try {
+  await page.fill('#input', 'value');
+} catch (error) {
+  throw new Error('Fill failed'); // No context
+}
+```
+
+### ✅ ALWAYS provide meaningful error messages
+```typescript
+// ✅ CORRECT - Meaningful error messages
+try {
+  await page.click('.submit-button');
+} catch (error) {
+  throw new Error(`Failed to click submit button on ${page.url()}: ${error.message}`);
+}
+
+try {
+  await page.fill('#email-input', 'test@example.com');
+} catch (error) {
+  throw new Error(`Failed to fill email input with "test@example.com": ${error.message}`);
+}
+```
+
+---
+
+## 🚫 No Error Handling
+
+### ❌ NEVER skip error handling
+```typescript
+// ❌ WRONG - No error handling
+await page.click('.button'); // Will throw cryptic Playwright errors
+await page.fill('#input', 'value'); // Will throw cryptic Playwright errors
+await page.waitForSelector('.element'); // Will throw cryptic Playwright errors
+```
+
+### ✅ ALWAYS handle errors properly
+```typescript
+// ✅ CORRECT - Proper error handling
+await expect(page.getByRole('button', { name: 'Submit' })).toBeVisible();
+await page.getByRole('button', { name: 'Submit' }).click();
+
+await expect(page.getByLabel('Email')).toBeVisible();
+await page.getByLabel('Email').fill('test@example.com');
+
+await expect(page.getByTestId('dynamic-content')).toBeVisible();
+```
+
+---
+
+## 🚫 Hardcoded Credentials
+
+### ❌ NEVER hardcode credentials
+```typescript
+// ❌ WRONG - Hardcoded credentials
+await login('admin@test.com', 'SuperSecret123!');
+await page.fill('#email', 'user@test.com');
+await page.fill('#password', 'Password123!');
+```
+
+### ✅ ALWAYS use environment variables
+```typescript
+// ✅ CORRECT - Environment variables
+await login(process.env.TEST_EMAIL!, process.env.TEST_PASSWORD!);
+await page.fill('#email', process.env.TEST_EMAIL!);
+await page.fill('#password', process.env.TEST_PASSWORD!);
+```
+
+---
+
+## 🚫 Complex Test Logic
+
+### ❌ NEVER create overly complex tests
+```typescript
+// ❌ WRONG - Overly complex test
+test('should do everything', async ({ page }) => {
+  // 50+ lines of mixed functionality
+  // Login + checkout + payment + email verification + etc.
+  // Multiple features tested in one test
+  // Hard to debug when it fails
+});
+```
+
+### ✅ ALWAYS keep tests simple and focused
+```typescript
+// ✅ CORRECT - Simple, focused tests
+test('should login with valid credentials', async ({ page }) => {
+  const loginPage = new LoginPage(page);
+  await loginPage.goto();
+  await loginPage.login(process.env.TEST_EMAIL!, process.env.TEST_PASSWORD!);
+  await expect(page).toHaveURL(/dashboard/);
+});
+
+test('should complete checkout with valid payment', async ({ page }) => {
+  const checkoutPage = new CheckoutPage(page);
+  await checkoutPage.goto();
+  await checkoutPage.completeCheckout();
+  await expect(page).toHaveURL(/success/);
+});
+```
+
+---
+
+## 🚫 Test Dependencies
+
+### ❌ NEVER create dependent tests
+```typescript
+// ❌ WRONG - Dependent tests
+test('should create user', async ({ page }) => {
+  // Creates user1
+});
+
+test('should login with user1', async ({ page }) => {
+  // Depends on previous test - will fail if run alone
+});
+```
+
+### ✅ ALWAYS create independent tests
+```typescript
+// ✅ CORRECT - Independent tests
+test.describe('User Management', () => {
+  test.beforeEach(async ({ request }) => {
+    // Setup: Create test user via API
+    await createTestUser(request);
+  });
+
+  test('should login with created user', async ({ page }) => {
+    const loginPage = new LoginPage(page);
+    await loginPage.goto();
+    await loginPage.login(testUser.email, testUser.password);
+    await expect(page).toHaveURL(/dashboard/);
+  });
+});
+```
+
+---
+
+## 🚫 Inconsistent Naming
+
+### ❌ NEVER use inconsistent naming
+```typescript
+// ❌ WRONG - Inconsistent naming
+test('test1', async ({ page }) => { });
+test('should login', async ({ page }) => { });
+test('login test', async ({ page }) => { });
+test('should_test_login', async ({ page }) => { });
+```
+
+### ✅ ALWAYS use consistent naming
+```typescript
+// ✅ CORRECT - Consistent naming
+test('should login with valid credentials', async ({ page }) => { });
+test('should show error for invalid credentials', async ({ page }) => { });
+test('should redirect to dashboard after login', async ({ page }) => { });
+```
+
+---
+
+## 🚫 No Test Organization
+
+### ❌ NEVER create unorganized tests
+```typescript
+// ❌ WRONG - Unorganized tests
+test('should login', async ({ page }) => { });
+test('should search products', async ({ page }) => { });
+test('should checkout', async ({ page }) => { });
+test('should login again', async ({ page }) => { });
+```
+
+### ✅ ALWAYS organize tests logically
+```typescript
+// ✅ CORRECT - Organized tests
+test.describe('Authentication', () => {
+  test('should login with valid credentials', async ({ page }) => { });
+  test('should show error for invalid credentials', async ({ page }) => { });
+});
+
+test.describe('Product Search', () => {
+  test('should find products by keyword', async ({ page }) => { });
+  test('should filter products by category', async ({ page }) => { });
+});
+
+test.describe('Checkout Flow', () => {
+  test('should complete checkout with valid payment', async ({ page }) => { });
+  test('should show error for invalid payment', async ({ page }) => { });
+});
+```
+
+---
+
+## 📋 Anti-Patterns Checklist
+
+### ❌ NEVER DO
+- [ ] **Hard waits** with `waitForTimeout()`
+- [ ] **Hardcoded URLs** in tests
+- [ ] **Commented code** in test files
+- [ ] **Copy-paste test logic** without refactoring
+- [ ] **Direct page interactions** in test specs
+- [ ] **Fragile selectors** (CSS, XPath, nth-child)
+- [ ] **Generic error messages** without context
+- [ ] **No error handling** for operations
+- [ ] **Hardcoded credentials** in tests
+- [ ] **Complex test logic** with multiple features
+- [ ] **Test dependencies** between test cases
+- [ ] **Inconsistent naming** conventions
+- [ ] **Unorganized test structure**
+
+### ✅ ALWAYS DO
+- [ ] **Smart waits** with proper conditions
+- [ ] **Environment variables** for URLs
+- [ ] **Clean code** without comments
+- [ ] **Reusable helper functions** and fixtures
+- [ ] **Page Object Model** for all interactions
+- [ ] **Semantic selectors** (role, label, text, testId)
+- [ ] **Meaningful error messages** with context
+- [ ] **Proper error handling** and validation
+- [ ] **Environment variables** for credentials
+- [ ] **Simple, focused tests** with single responsibility
+- [ ] **Independent tests** with proper setup
+- [ ] **Consistent naming** conventions
+- [ ] **Logical test organization** by feature

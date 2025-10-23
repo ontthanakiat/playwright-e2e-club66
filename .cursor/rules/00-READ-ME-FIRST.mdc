@@ -1,0 +1,161 @@
+---
+alwaysApply: true
+---
+
+# 🎯 Playwright E2E & API Testing Rules
+
+## 📋 Overview
+
+This is a **modular Playwright Test Automation Framework** for E2E and API testing, designed for **Ted (Senior SDET)** with 5+ years experience.
+
+### 🏗️ Architecture
+- **Tech Stack**: Node.js + TypeScript + Playwright 1.49+
+- **Patterns**: Page Object Model (POM) with AAA pattern, Data-Driven Testing (DDT), and Hybrid WET/DRY principles
+- **Reporting**: HTML Reporter + Allure
+- **Environment**: Multi-environment support (dev/staging/prod)
+
+---
+
+## 📁 Rules Structure
+
+```
+.cursor/rules/
+├── 00-READ-ME-FIRST.mdc           # This file - Overview & navigation
+│
+├── core/                           # Core testing patterns
+│   ├── 01-user-profile.mdc        # Ted's profile & communication
+│   ├── 02-project-structure.mdc   # Folder structure
+│   ├── 03-configuration.mdc       # Config & environment
+│   ├── 04-selectors.mdc           # Selector best practices
+│   ├── 05-page-objects.mdc        # POM + decorators
+│   └── 06-test-structure.mdc      # AAA pattern, tags
+│
+├── data/                           # Data & fixtures
+│   ├── 01-fixtures.mdc            # Test data management
+│   ├── 02-ddt.mdc                 # Data-driven testing
+│   └── 03-custom-fixtures.mdc     # Playwright fixtures
+│
+├── testing/                        # Testing strategies
+│   ├── 01-api-testing.mdc         # API patterns
+│   ├── 02-assertions.mdc          # Expect & soft assertions
+│   ├── 03-visual.mdc              # Screenshot testing
+│   ├── 04-accessibility.mdc       # A11y testing
+│   ├── 05-mobile.mdc              # Responsive testing
+│   └── 06-performance.mdc         # Lighthouse
+│
+├── advanced/                       # Advanced techniques
+│   ├── 01-mocking.mdc             # Network mocking
+│   ├── 02-debugging.mdc           # Debug & trace
+│   ├── 03-error-handling.mdc      # Try-catch & retries
+│   └── 04-browser-context.mdc     # Auth state & contexts
+│
+├── security/                       # Security practices
+│   └── 01-credentials.mdc         # Secrets & .env
+│
+├── quality/                        # Code quality
+│   ├── 01-best-practices.mdc      # General best practices
+│   ├── 02-anti-patterns.mdc       # What NOT to do
+│   └── 03-readability.mdc         # Code readability rules
+│
+└── cicd/                           # CI/CD & Reporting
+    ├── 01-github-actions.mdc      # CI/CD setup
+    ├── 02-reporting.mdc           # HTML, Allure reports
+    └── 03-scripts.mdc             # Package.json scripts
+```
+
+---
+
+## 🚀 Quick Start
+
+### For New Team Members
+1. **Start here**: Read this file completely
+2. **Core patterns**: Go through `core/` folder in order
+3. **Your focus area**: Jump to relevant `testing/` or `advanced/` sections
+4. **Quality check**: Review `quality/` before committing code
+
+### For Daily Development
+- **Quick reference**: `core/04-selectors.mdc` and `core/05-page-objects.mdc`
+- **API work**: `testing/01-api-testing.mdc`
+- **Debugging**: `advanced/02-debugging.mdc`
+- **Error handling**: `advanced/03-error-handling.mdc`
+
+### For CI/CD Setup
+- **GitHub Actions**: `cicd/01-github-actions.mdc`
+- **Reporting**: `cicd/02-reporting.mdc`
+- **Scripts**: `cicd/03-scripts.mdc`
+
+---
+
+## 🎯 Key Principles
+
+### ✅ DO
+- **Be concise and direct** - Ted knows testing; skip basic explanations
+- **Use fenced code blocks** with proper language tags
+- **State assumptions upfront** if making decisions
+- **Provide file paths** for all code suggestions
+- **Show diffs** for modifications, full code for new files
+- **Include imports** at the top of code blocks
+
+### ❌ DON'T
+- Don't ask redundant questions like "Should I create this file?"
+- Don't explain basic concepts (selectors, async/await, etc.)
+- Don't suggest installing packages already in package.json
+- Don't repeat the same suggestion multiple times
+
+---
+
+## 📚 Learning Path
+
+### Beginner (0-1 years)
+1. `core/` - All files in order
+2. `data/01-fixtures.mdc` - Basic test data
+3. `testing/01-api-testing.mdc` - API basics
+4. `quality/01-best-practices.mdc` - Code quality
+
+### Intermediate (1-3 years)
+1. `data/` - All data management patterns
+2. `testing/` - All testing strategies
+3. `advanced/01-mocking.mdc` - Network mocking
+4. `advanced/03-error-handling.mdc` - Error handling
+
+### Advanced (3+ years)
+1. `advanced/` - All advanced techniques
+2. `quality/` - All quality patterns
+3. `cicd/` - CI/CD optimization
+4. Custom patterns and extensions
+
+---
+
+## 🔄 Maintenance
+
+### When to Update Rules
+- **New patterns discovered** → Add to relevant section
+- **Common mistakes** → Add to `quality/02-anti-patterns.mdc`
+- **Tool updates** → Update configuration files
+- **Team feedback** → Refine communication rules
+
+### Version Control
+- **Major changes**: Update version in this file
+- **Minor updates**: Update individual rule files
+- **Breaking changes**: Document in this file's changelog
+
+---
+
+## 📞 Support
+
+### For Questions
+- **Technical**: Check relevant rule file first
+- **Process**: Review `core/01-user-profile.mdc`
+- **Architecture**: See `core/02-project-structure.mdc`
+
+### For Updates
+- **New patterns**: Add to appropriate category
+- **Outdated info**: Update or remove
+- **Missing topics**: Create new rule file
+
+---
+
+**Last Updated**: 2025-01-21  
+**Framework Version**: Playwright 1.49+  
+**Maintained by**: Ted (Senior SDET)  
+**Structure Version**: 2.0 (Modular)

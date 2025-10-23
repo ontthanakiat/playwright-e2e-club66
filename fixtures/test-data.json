@@ -1,0 +1,46 @@
+{
+  "users": {
+    "valid": {
+      "email": "ont@outsourcify.net",
+      "password": "St@rt123",
+      "firstName": "Ont",
+      "lastName": "Thanakiat",
+      "phone": "123456789"
+    },
+    "admin": {
+      "email": "admin@example.com",
+      "password": "Admin123!",
+      "firstName": "Admin",
+      "lastName": "User",
+      "phone": "987654321"
+    },
+    "test": {
+      "email": "test@example.com",
+      "password": "Test123!",
+      "firstName": "Test",
+      "lastName": "User",
+      "phone": "555555555"
+    }
+  },
+  "registration": {
+    "validUser": {
+      "firstName": "Ont",
+      "lastName": "Thanakiat",
+      "email": "ont@outsourcify.net",
+      "phone": "123456789",
+      "password": "St@rt123"
+    }
+  },
+  "email": {
+    "otp": {
+      "subject": "OTP",
+      "from": "noreply@club66.pro",
+      "waitTimeSec": 60
+    },
+    "forgotPassword": {
+      "subject": "Password Reset",
+      "from": "noreply@club66.pro",
+      "waitTimeSec": 30
+    }
+  }
+}

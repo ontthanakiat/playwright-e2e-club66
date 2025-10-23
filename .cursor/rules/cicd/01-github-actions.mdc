@@ -1,0 +1,469 @@
+---
+alwaysApply: true
+---
+
+# 🤖 CI/CD with GitHub Actions
+
+## 🎯 GitHub Actions Setup
+
+### ✅ CORRECT - Complete GitHub Actions Workflow
+```yaml
+# .github/workflows/playwright.yml
+name: Playwright Tests
+on:
+  push:
+    branches: [ main, develop ]
+  pull_request:
+    branches: [ main ]
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 18
+      
+      - name: Install dependencies
+        run: npm ci
+      
+      - name: Install Playwright Browsers
+        run: npx playwright install --with-deps
+      
+      - name: Run Smoke Tests
+        env:
+          BASE_URL: ${{ secrets.BASE_URL }}
+          API_URL: ${{ secrets.API_URL }}
+          TEST_EMAIL: ${{ secrets.TEST_EMAIL }}
+          TEST_PASSWORD: ${{ secrets.TEST_PASSWORD }}
+        run: npm run test:smoke
+      
+      - name: Upload Report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: playwright-report
+          path: playwright-report/
+```
+
+---
+
+## 🔧 Multi-Environment CI/CD
+
+### ✅ CORRECT - Environment-Specific Workflows
+```yaml
+# .github/workflows/playwright-dev.yml
+name: Playwright Tests - Dev
+on:
+  push:
+    branches: [ develop ]
+  pull_request:
+    branches: [ develop ]
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 18
+      
+      - name: Install dependencies
+        run: npm ci
+      
+      - name: Install Playwright Browsers
+        run: npx playwright install --with-deps
+      
+      - name: Run Tests
+        env:
+          BASE_ENV: dev
+          BASE_URL: ${{ secrets.DEV_BASE_URL }}
+          API_URL: ${{ secrets.DEV_API_URL }}
+          TEST_EMAIL: ${{ secrets.DEV_TEST_EMAIL }}
+          TEST_PASSWORD: ${{ secrets.DEV_TEST_PASSWORD }}
+        run: npm test
+      
+      - name: Upload Report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: playwright-report-dev
+          path: playwright-report/
+```
+
+### ✅ CORRECT - Staging Environment Workflow
+```yaml
+# .github/workflows/playwright-staging.yml
+name: Playwright Tests - Staging
+on:
+  push:
+    branches: [ main ]
+  pull_request:
+    branches: [ main ]
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 18
+      
+      - name: Install dependencies
+        run: npm ci
+      
+      - name: Install Playwright Browsers
+        run: npx playwright install --with-deps
+      
+      - name: Run Tests
+        env:
+          BASE_ENV: staging
+          BASE_URL: ${{ secrets.STAGING_BASE_URL }}
+          API_URL: ${{ secrets.STAGING_API_URL }}
+          TEST_EMAIL: ${{ secrets.STAGING_TEST_EMAIL }}
+          TEST_PASSWORD: ${{ secrets.STAGING_TEST_PASSWORD }}
+        run: npm test
+      
+      - name: Upload Report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: playwright-report-staging
+          path: playwright-report/
+```
+
+---
+
+## 🎯 Parallel Test Execution
+
+### ✅ CORRECT - Parallel Test Jobs
+```yaml
+# .github/workflows/playwright-parallel.yml
+name: Playwright Tests - Parallel
+on:
+  push:
+    branches: [ main ]
+  pull_request:
+    branches: [ main ]
+
+jobs:
+  smoke-tests:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 18
+      
+      - name: Install dependencies
+        run: npm ci
+      
+      - name: Install Playwright Browsers
+        run: npx playwright install --with-deps
+      
+      - name: Run Smoke Tests
+        env:
+          BASE_URL: ${{ secrets.BASE_URL }}
+          TEST_EMAIL: ${{ secrets.TEST_EMAIL }}
+          TEST_PASSWORD: ${{ secrets.TEST_PASSWORD }}
+        run: npm run test:smoke
+      
+      - name: Upload Smoke Report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: smoke-report
+          path: playwright-report/
+
+  api-tests:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 18
+      
+      - name: Install dependencies
+        run: npm ci
+      
+      - name: Install Playwright Browsers
+        run: npx playwright install --with-deps
+      
+      - name: Run API Tests
+        env:
+          API_URL: ${{ secrets.API_URL }}
+          TEST_EMAIL: ${{ secrets.TEST_EMAIL }}
+          TEST_PASSWORD: ${{ secrets.TEST_PASSWORD }}
+        run: npm run test:api
+      
+      - name: Upload API Report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: api-report
+          path: playwright-report/
+
+  e2e-tests:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 18
+      
+      - name: Install dependencies
+        run: npm ci
+      
+      - name: Install Playwright Browsers
+        run: npx playwright install --with-deps
+      
+      - name: Run E2E Tests
+        env:
+          BASE_URL: ${{ secrets.BASE_URL }}
+          TEST_EMAIL: ${{ secrets.TEST_EMAIL }}
+          TEST_PASSWORD: ${{ secrets.TEST_PASSWORD }}
+        run: npm run test:e2e
+      
+      - name: Upload E2E Report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: e2e-report
+          path: playwright-report/
+```
+
+---
+
+## 🔧 Advanced CI/CD Features
+
+### ✅ CORRECT - Matrix Testing
+```yaml
+# .github/workflows/playwright-matrix.yml
+name: Playwright Tests - Matrix
+on:
+  push:
+    branches: [ main ]
+  pull_request:
+    branches: [ main ]
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        browser: [chromium, firefox, webkit]
+        viewport: [desktop, mobile]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 18
+      
+      - name: Install dependencies
+        run: npm ci
+      
+      - name: Install Playwright Browsers
+        run: npx playwright install --with-deps
+      
+      - name: Run Tests
+        env:
+          BASE_URL: ${{ secrets.BASE_URL }}
+          TEST_EMAIL: ${{ secrets.TEST_EMAIL }}
+          TEST_PASSWORD: ${{ secrets.TEST_PASSWORD }}
+        run: npm test -- --project=${{ matrix.browser }} --grep @smoke
+      
+      - name: Upload Report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: playwright-report-${{ matrix.browser }}-${{ matrix.viewport }}
+          path: playwright-report/
+```
+
+### ✅ CORRECT - Conditional Execution
+```yaml
+# .github/workflows/playwright-conditional.yml
+name: Playwright Tests - Conditional
+on:
+  push:
+    branches: [ main, develop ]
+  pull_request:
+    branches: [ main ]
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 18
+      
+      - name: Install dependencies
+        run: npm ci
+      
+      - name: Install Playwright Browsers
+        run: npx playwright install --with-deps
+      
+      - name: Run Smoke Tests
+        if: github.event_name == 'pull_request'
+        env:
+          BASE_URL: ${{ secrets.BASE_URL }}
+          TEST_EMAIL: ${{ secrets.TEST_EMAIL }}
+          TEST_PASSWORD: ${{ secrets.TEST_PASSWORD }}
+        run: npm run test:smoke
+      
+      - name: Run Full Test Suite
+        if: github.ref == 'refs/heads/main'
+        env:
+          BASE_URL: ${{ secrets.BASE_URL }}
+          TEST_EMAIL: ${{ secrets.TEST_EMAIL }}
+          TEST_PASSWORD: ${{ secrets.TEST_PASSWORD }}
+        run: npm test
+      
+      - name: Upload Report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: playwright-report
+          path: playwright-report/
+```
+
+---
+
+## 🔐 Required Secrets (GitHub Settings)
+
+### ✅ CORRECT - GitHub Secrets Configuration
+```bash
+# Required Secrets (GitHub Settings)
+BASE_URL=https://staging.example.com
+API_URL=https://api.staging.example.com
+TEST_EMAIL=test@example.com
+TEST_PASSWORD=TestPassword123!
+
+# Environment-specific secrets
+DEV_BASE_URL=https://dev.example.com
+DEV_API_URL=https://api-dev.example.com
+DEV_TEST_EMAIL=dev@example.com
+DEV_TEST_PASSWORD=DevPassword123!
+
+STAGING_BASE_URL=https://staging.example.com
+STAGING_API_URL=https://api-staging.example.com
+STAGING_TEST_EMAIL=staging@example.com
+STAGING_TEST_PASSWORD=StagingPassword123!
+
+# API credentials
+API_KEY=your-api-key
+API_SECRET=your-api-secret
+```
+
+---
+
+## 🎯 CI/CD Best Practices
+
+### ✅ DO
+- **Use environment variables** for all sensitive data
+- **Run smoke tests** on pull requests
+- **Run full test suite** on main branch
+- **Upload test reports** for debugging
+- **Use matrix testing** for multiple browsers
+- **Implement conditional execution** based on branch
+- **Use proper secrets management** for credentials
+
+### ❌ DON'T
+```yaml
+# ❌ WRONG - Hardcoded values
+- name: Run Tests
+  run: npm test -- --base-url=https://staging.example.com
+
+# ❌ WRONG - No error handling
+- name: Run Tests
+  run: npm test
+
+# ❌ WRONG - No report upload
+- name: Run Tests
+  run: npm test
+  # No report upload for debugging
+```
+
+### ✅ CORRECT
+```yaml
+# ✅ CORRECT - Environment variables and error handling
+- name: Run Tests
+  env:
+    BASE_URL: ${{ secrets.BASE_URL }}
+    TEST_EMAIL: ${{ secrets.TEST_EMAIL }}
+    TEST_PASSWORD: ${{ secrets.TEST_PASSWORD }}
+  run: npm test
+
+- name: Upload Report
+  if: always()
+  uses: actions/upload-artifact@v4
+  with:
+    name: playwright-report
+    path: playwright-report/
+```
+
+---
+
+## 🔧 CI/CD Utilities
+
+### Test Scripts
+```json
+// package.json
+{
+  "scripts": {
+    "test": "playwright test",
+    "test:smoke": "playwright test --grep @smoke",
+    "test:api": "playwright test tests/api",
+    "test:e2e": "playwright test tests/e2e",
+    "test:visual": "playwright test tests/visual",
+    "test:staging": "BASE_ENV=staging playwright test",
+    "test:prod": "BASE_ENV=prod playwright test --grep @smoke"
+  }
+}
+```
+
+### Environment Configuration
+```typescript
+// playwright.config.ts
+export default defineConfig({
+  use: {
+    baseURL: process.env.BASE_URL,
+    screenshot: 'only-on-failure',
+    video: 'retain-on-failure',
+    trace: 'retain-on-failure',
+  },
+  timeout: 30000,
+  retries: process.env.CI ? 2 : 0,
+  workers: process.env.CI ? 2 : undefined,
+});
+```
+
+---
+
+## 📋 CI/CD Checklist
+
+### ✅ Workflow Setup
+- [ ] **GitHub Actions workflow** configured
+- [ ] **Environment variables** set up correctly
+- [ ] **Secrets management** implemented
+- [ ] **Test execution** configured for different branches
+- [ ] **Report upload** configured for debugging
+
+### ✅ Test Execution
+- [ ] **Smoke tests** run on pull requests
+- [ ] **Full test suite** run on main branch
+- [ ] **Parallel execution** configured where appropriate
+- [ ] **Matrix testing** for multiple browsers
+- [ ] **Conditional execution** based on branch
+
+### ✅ Security
+- [ ] **Secrets configured** in GitHub settings
+- [ ] **Environment variables** used for all sensitive data
+- [ ] **No hardcoded credentials** in workflow files
+- [ ] **Proper access controls** for secrets
+- [ ] **Audit logging** enabled for secret access

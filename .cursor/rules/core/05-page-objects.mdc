@@ -1,0 +1,385 @@
+---
+alwaysApply: true
+---
+
+# 📄 Page Object Model (POM)
+
+## 🎯 Core POM Principles
+
+**ALWAYS use POM** - No direct page interactions in test specs.
+
+### ✅ CORRECT - Page Object Pattern
+```typescript
+// pages/LoginPage.ts
+export class LoginPage {
+  constructor(private page: Page) {}
+
+  // Locators
+  private emailInput = () => this.page.getByLabel('Email');
+  private passwordInput = () => this.page.getByLabel('Password');
+  private submitButton = () => this.page.getByRole('button', { name: 'Login' });
+  private errorMessage = () => this.page.getByRole('alert');
+
+  // Actions
+  async goto() {
+    await this.page.goto('/login');
+  }
+
+  async login(email: string, password: string) {
+    await this.emailInput().fill(email);
+    await this.passwordInput().fill(password);
+    await this.submitButton().click();
+  }
+
+  async getErrorMessage() {
+    return await this.errorMessage().textContent();
+  }
+}
+
+// ✅ CORRECT - tests/e2e/auth/login.spec.ts
+test('should show error for invalid credentials', async ({ page }) => {
+  const loginPage = new LoginPage(page);
+  await loginPage.goto();
+  await loginPage.login('invalid@test.com', 'wrong');
+  expect(await loginPage.getErrorMessage()).toContain('Invalid credentials');
+});
+```
+
+### ❌ WRONG - Direct Page Interactions
+```typescript
+// ❌ WRONG - Direct page interactions in test
+test('bad test', async ({ page }) => {
+  await page.goto('/login');
+  await page.fill('#email', 'test@test.com');
+  await page.click('button[type="submit"]');
+});
+```
+
+---
+
+## 🏗️ BasePage Pattern
+
+### BasePage Implementation
+```typescript
+// pages/BasePage.ts
+export class BasePage {
+  constructor(protected page: Page) {}
+
+  // Common navigation
+  async goto(url: string) {
+    await this.page.goto(url);
+  }
+
+  async waitForLoad() {
+    await this.page.waitForLoadState('networkidle');
+  }
+
+  // Common assertions
+  async expectTitle(title: string) {
+    await expect(this.page).toHaveTitle(title);
+  }
+
+  async expectUrl(url: string | RegExp) {
+    await expect(this.page).toHaveURL(url);
+  }
+
+  // Common interactions
+  async clickBack() {
+    await this.page.goBack();
+  }
+
+  async refresh() {
+    await this.page.reload();
+  }
+}
+```
+
+### Extending BasePage
+```typescript
+// pages/LoginPage.ts
+export class LoginPage extends BasePage {
+  constructor(page: Page) {
+    super(page);
+  }
+
+  // Page-specific locators
+  private emailInput = () => this.page.getByLabel('Email');
+  private passwordInput = () => this.page.getByLabel('Password');
+  private submitButton = () => this.page.getByRole('button', { name: 'Login' });
+
+  // Page-specific actions
+  async goto() {
+    await super.goto('/login');
+  }
+
+  async login(email: string, password: string) {
+    await this.emailInput().fill(email);
+    await this.passwordInput().fill(password);
+    await this.submitButton().click();
+  }
+}
+```
+
+---
+
+## 🎭 Self-Documenting Tests with TypeScript Decorators
+
+### Step Decorator Implementation
+```typescript
+// support/decorators/step-decorator.ts
+import { test } from '@playwright/test';
+
+export function step(stepName?: string) {
+  return function decorator(
+    target: Function,
+    context: ClassMethodDecoratorContext
+  ) {
+    return function replacementMethod(...args: any) {
+      const name = stepName || `${this.constructor.name}.${context.name as string}`;
+      return test.step(name, async () => {
+        return await target.call(this, ...args);
+      });
+    };
+  };
+}
+```
+
+### Using Decorators in Page Objects
+```typescript
+// pages/LoginPage.ts with decorators
+import { step } from '@/support/decorators/step-decorator';
+
+export class LoginPage {
+  constructor(private page: Page) {}
+
+  @step('Navigate to login page')
+  async goto() {
+    await this.page.goto('/login');
+  }
+
+  @step('Perform user login')
+  async login(email: string, password: string) {
+    await this.emailInput().fill(email);
+    await this.passwordInput().fill(password);
+    await this.submitButton().click();
+  }
+
+  @step() // Auto-generates: "LoginPage.getErrorMessage"
+  async getErrorMessage() {
+    return await this.errorMessage().textContent();
+  }
+}
+```
+
+### ❌ WRONG - Manual test.step wrapping
+```typescript
+// ❌ WRONG - Manual test.step wrapping
+export class LoginPage {
+  async login(email: string, password: string) {
+    await test.step('Perform user login', async () => {
+      await this.emailInput().fill(email);
+      await this.passwordInput().fill(password);
+      await this.submitButton().click();
+    });
+  }
+}
+```
+
+---
+
+## 🎯 Page Object Best Practices
+
+### 1. Single Responsibility
+```typescript
+// ✅ CORRECT - Single responsibility
+export class LoginPage {
+  async login(email: string, password: string) {
+    await this.fillCredentials(email, password);
+    await this.submitForm();
+  }
+
+  private async fillCredentials(email: string, password: string) {
+    await this.emailInput().fill(email);
+    await this.passwordInput().fill(password);
+  }
+
+  private async submitForm() {
+    await this.submitButton().click();
+  }
+}
+
+// ❌ WRONG - Multiple responsibilities
+export class LoginPage {
+  async login(email: string, password: string) {
+    await this.emailInput().fill(email);
+    await this.passwordInput().fill(password);
+    await this.submitButton().click();
+    await this.page.waitForURL(/dashboard/);
+    await this.verifyUserProfile();
+    await this.sendAnalyticsEvent('login_success');
+  }
+}
+```
+
+### 2. Well-Structured Locators
+```typescript
+// ✅ CORRECT - Well-structured locators
+export class CheckoutPage {
+  // Form elements
+  private readonly shippingAddressForm = () => this.page.getByTestId('shipping-form');
+  private readonly paymentMethodSelector = () => this.page.getByTestId('payment-methods');
+  private readonly orderSummary = () => this.page.getByTestId('order-summary');
+
+  // Buttons
+  private readonly continueButton = () => this.page.getByRole('button', { name: 'Continue' });
+  private readonly placeOrderButton = () => this.page.getByRole('button', { name: 'Place Order' });
+
+  // Messages
+  private readonly successMessage = () => this.page.getByText('Order placed successfully');
+  private readonly errorMessage = () => this.page.getByRole('alert');
+}
+```
+
+### 3. Thoughtful Naming
+```typescript
+// ✅ CORRECT - Clear, descriptive names
+export class CheckoutPage {
+  async completeCheckoutWithCreditCard(cardDetails: CreditCardDetails) {
+    await this.fillShippingAddress();
+    await this.selectCreditCardPayment();
+    await this.enterCardDetails(cardDetails);
+    await this.submitOrder();
+  }
+}
+
+// ❌ WRONG - Unclear, abbreviated names
+export class CheckoutPage {
+  async doCheckout(card: any) {
+    await this.fillForm1();
+    await this.selectSel();
+    await this.enterCard(card);
+    await this.submit();
+  }
+}
+```
+
+---
+
+## 🔧 Advanced Page Object Patterns
+
+### 1. Component-Based Page Objects
+```typescript
+// pages/components/HeaderComponent.ts
+export class HeaderComponent {
+  constructor(private page: Page) {}
+
+  private readonly logo = () => this.page.getByTestId('logo');
+  private readonly navigation = () => this.page.getByRole('navigation');
+  private readonly userMenu = () => this.page.getByTestId('user-menu');
+
+  async clickLogo() {
+    await this.logo().click();
+  }
+
+  async navigateTo(linkText: string) {
+    await this.navigation().getByRole('link', { name: linkText }).click();
+  }
+}
+
+// pages/DashboardPage.ts
+export class DashboardPage extends BasePage {
+  public readonly header = new HeaderComponent(this.page);
+  public readonly sidebar = new SidebarComponent(this.page);
+
+  async goto() {
+    await super.goto('/dashboard');
+  }
+}
+```
+
+### 2. Fluent Interface Pattern
+```typescript
+// pages/LoginPage.ts - Fluent interface
+export class LoginPage {
+  constructor(private page: Page) {}
+
+  async goto(): Promise<LoginPage> {
+    await this.page.goto('/login');
+    return this;
+  }
+
+  async fillEmail(email: string): Promise<LoginPage> {
+    await this.emailInput().fill(email);
+    return this;
+  }
+
+  async fillPassword(password: string): Promise<LoginPage> {
+    await this.passwordInput().fill(password);
+    return this;
+  }
+
+  async submit(): Promise<LoginPage> {
+    await this.submitButton().click();
+    return this;
+  }
+}
+
+// Usage in tests
+test('should login with fluent interface', async ({ page }) => {
+  const loginPage = new LoginPage(page);
+  await loginPage
+    .goto()
+    .fillEmail('test@example.com')
+    .fillPassword('password123')
+    .submit();
+});
+```
+
+### 3. Page Object with Validation
+```typescript
+// pages/LoginPage.ts - With validation
+export class LoginPage {
+  constructor(private page: Page) {}
+
+  async login(email: string, password: string) {
+    await this.emailInput().fill(email);
+    await this.passwordInput().fill(password);
+    await this.submitButton().click();
+  }
+
+  async expectLoginSuccess() {
+    await expect(this.page).toHaveURL(/dashboard/);
+    await expect(this.page.getByText('Welcome')).toBeVisible();
+  }
+
+  async expectLoginError(message: string) {
+    await expect(this.errorMessage()).toBeVisible();
+    await expect(this.errorMessage()).toContainText(message);
+  }
+}
+```
+
+---
+
+## 📋 Page Object Checklist
+
+### ✅ Required Elements
+- [ ] **Constructor** with Page parameter
+- [ ] **Private locators** using proper selectors
+- [ ] **Public action methods** for user interactions
+- [ ] **Getter methods** for assertions
+- [ ] **Navigation methods** (goto, etc.)
+
+### ✅ Best Practices
+- [ ] **Extend BasePage** for common functionality
+- [ ] **Use decorators** for test steps
+- [ ] **Single responsibility** per method
+- [ ] **Clear naming** for methods and locators
+- [ ] **Proper error handling** in methods
+
+### ✅ Code Quality
+- [ ] **TypeScript types** for parameters
+- [ ] **Consistent formatting** and structure
+- [ ] **No hardcoded values** in methods
+- [ ] **Reusable components** when appropriate
+- [ ] **Proper imports** and exports

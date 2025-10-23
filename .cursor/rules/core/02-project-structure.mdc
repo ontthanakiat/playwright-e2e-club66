@@ -1,0 +1,237 @@
+---
+alwaysApply: true
+---
+
+# 🏗️ Project Structure
+
+## 📁 Standard Playwright Framework Structure
+
+```
+playwright-automation/
+├── tests/
+│   ├── e2e/              # End-to-end test specs
+│   │   ├── auth/
+│   │   ├── checkout/
+│   │   └── search/
+│   ├── api/              # API test specs
+│   │   ├── users/
+│   │   └── products/
+├── pages/                # Page Object Models
+│   ├── BasePage.ts
+│   ├── LoginPage.ts
+│   └── DashboardPage.ts
+├── fixtures/             # Test data (JSON/CSV)
+│   ├── users.json
+│   └── products.json
+├── support/
+│   ├── utils/            # Helper functions
+│   ├── types/            # TypeScript types
+│   └── api-client/       # API helper classes
+├── reports/
+│   ├── html/             # HTML reports
+│   └── allure-results/   # Allure reports
+├── screenshots/          # Failure screenshots
+├── videos/               # Test execution videos
+├── .github/workflows/    # CI/CD pipelines
+├── playwright.config.ts  # Main config
+├── .env.example          # Environment template
+└── package.json
+```
+
+---
+
+## 📂 Directory Guidelines
+
+### `/tests/` - Test Specifications
+- **`e2e/`**: UI automation tests organized by feature
+- **`api/`**: API tests organized by resource/endpoint
+- **Naming**: `[feature].spec.ts` or `[resource].spec.ts`
+
+### `/pages/` - Page Object Models
+- **One file per page/component**
+- **Naming**: `[PageName]Page.ts`
+- **Inheritance**: Extend `BasePage.ts` for common functionality
+
+### `/fixtures/` - Test Data
+- **JSON files** for structured data
+- **CSV files** for tabular data
+- **Naming**: `[resource].json` or `[scenario].json`
+
+### `/support/` - Helper Code
+- **`utils/`**: Reusable utility functions
+- **`types/`**: TypeScript type definitions
+- **`api-client/`**: API wrapper classes
+- **`decorators/`**: Custom decorators (e.g., @step)
+
+### `/reports/` - Test Output
+- **`html/`**: HTML test reports
+- **`allure-results/`**: Allure report data
+- **`screenshots/`**: Failure screenshots
+- **`videos/`**: Test execution recordings
+
+---
+
+## 🎯 File Naming Conventions
+
+### Test Files
+```typescript
+// ✅ CORRECT
+tests/e2e/auth/login.spec.ts
+tests/e2e/checkout/payment.spec.ts
+tests/api/users/user-crud.spec.ts
+
+// ❌ WRONG
+tests/login.test.ts
+tests/userAPI.spec.js
+tests/checkout-flow.spec.ts
+```
+
+### Page Objects
+```typescript
+// ✅ CORRECT
+pages/LoginPage.ts
+pages/DashboardPage.ts
+pages/CheckoutPage.ts
+
+// ❌ WRONG
+pages/login.ts
+pages/dashboard.js
+pages/checkout-page.ts
+```
+
+### Fixtures
+```typescript
+// ✅ CORRECT
+fixtures/users.json
+fixtures/products.json
+fixtures/test-data.json
+
+// ❌ WRONG
+fixtures/userData.json
+fixtures/product_info.json
+fixtures/data.json
+```
+
+---
+
+## 🔧 Import Path Conventions
+
+### Use Path Aliases
+```typescript
+// ✅ CORRECT - Use @ alias for src root
+import { LoginPage } from '@/pages/LoginPage';
+import testData from '@/fixtures/test-data.json';
+import { retryOperation } from '@/support/utils/retry-helper';
+
+// ❌ WRONG - Relative paths
+import { LoginPage } from '../../pages/LoginPage';
+import testData from '../fixtures/test-data.json';
+```
+
+### TypeScript Path Mapping
+```json
+// tsconfig.json
+{
+  "compilerOptions": {
+    "baseUrl": ".",
+    "paths": {
+      "@/*": ["src/*"],
+      "@/pages/*": ["pages/*"],
+      "@/fixtures/*": ["fixtures/*"],
+      "@/support/*": ["support/*"]
+    }
+  }
+}
+```
+
+---
+
+## 📋 File Organization Rules
+
+### Test File Structure
+```typescript
+// tests/e2e/auth/login.spec.ts
+import { test, expect } from '@playwright/test';
+import { LoginPage } from '@/pages/LoginPage';
+import testData from '@/fixtures/users.json';
+
+test.describe('Login Flow @smoke', () => {
+  test.beforeEach(async ({ page }) => {
+    // Setup code
+  });
+
+  test('should login with valid credentials', async ({ page }) => {
+    // Test implementation
+  });
+});
+```
+
+### Page Object Structure
+```typescript
+// pages/LoginPage.ts
+import { Page } from '@playwright/test';
+import { BasePage } from './BasePage';
+
+export class LoginPage extends BasePage {
+  constructor(page: Page) {
+    super(page);
+  }
+
+  // Locators
+  private emailInput = () => this.page.getByLabel('Email');
+  private passwordInput = () => this.page.getByLabel('Password');
+  private submitButton = () => this.page.getByRole('button', { name: 'Login' });
+
+  // Actions
+  async goto() {
+    await this.page.goto('/login');
+  }
+
+  async login(email: string, password: string) {
+    await this.emailInput().fill(email);
+    await this.passwordInput().fill(password);
+    await this.submitButton().click();
+  }
+}
+```
+
+---
+
+## 🚀 Quick Setup Commands
+
+### Create New Test
+```bash
+# E2E test
+mkdir -p tests/e2e/[feature]
+touch tests/e2e/[feature]/[spec].spec.ts
+
+# API test
+mkdir -p tests/api/[resource]
+touch tests/api/[resource]/[spec].spec.ts
+```
+
+### Create New Page Object
+```bash
+touch pages/[PageName]Page.ts
+```
+
+### Create New Fixture
+```bash
+touch fixtures/[resource].json
+```
+
+---
+
+## 📝 Maintenance Guidelines
+
+### When Adding New Features
+1. **Create feature directory** in `tests/e2e/`
+2. **Add page objects** in `pages/`
+3. **Create test data** in `fixtures/`
+4. **Update imports** with proper aliases
+
+### When Refactoring
+1. **Update file paths** in imports
+2. **Maintain naming conventions**
+3. **Update documentation** if structure changes
+4. **Test all imports** after changes

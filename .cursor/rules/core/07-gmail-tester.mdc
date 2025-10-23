@@ -1,0 +1,312 @@
+---
+description: Gmail API testing setup and best practices for email verification and MFA testing
+globs: *.js,*.ts,*.json,*.md
+---
+
+# Gmail Tester Integration Rules
+
+## 🎯 Overview
+This project uses `gmail-tester` for automated email testing, MFA verification, and email-based test scenarios. Follow these rules for proper setup and usage.
+
+## 📦 Installation & Setup
+
+### 1. Package Installation
+```bash
+npm install --save-dev gmail-tester
+```
+
+### 2. Google Cloud Platform Setup
+- **Console**: [Google Cloud Console](https://console.cloud.google.com/)
+- **Project**: Create new or select existing project
+- **API**: Enable Gmail API for the project
+- **Credentials**: Create OAuth client ID (Desktop app type)
+- **Consent Screen**: Configure OAuth consent screen
+- **Download**: Save credentials as `credentials.json` in project root
+
+### 3. Authentication Initialization
+```bash
+node node_modules/gmail-tester/init.js credentials.json token.json your-email@domain.com
+```
+- Follow authorization URL in terminal
+- Sign in with Google account
+- Grant requested permissions
+- Creates `token.json` in project directory
+
+## 🔐 Security Rules
+
+### ✅ DO
+- **Store credentials securely**: Both `credentials.json` and `token.json` are git-ignored
+- **Use environment variables**: Store email addresses in `.env` files
+- **Base64 encode for CI/CD**: Convert files to base64 for GitHub Secrets
+- **Rotate tokens regularly**: Refresh tokens when they expire
+
+### ❌ NEVER
+```javascript
+// ❌ NEVER hardcode credentials
+const credentials = require('./credentials.json');
+const token = require('./token.json');
+
+// ❌ NEVER commit credential files
+// credentials.json and token.json should be in .gitignore
+
+// ❌ NEVER log sensitive data
+console.log('Token:', token);
+```
+
+## 🧪 Testing Patterns
+
+### 1. Email Verification Tests
+```javascript
+// ✅ CORRECT - Email verification pattern
+const { getMessages } = require('gmail-tester');
+
+test('should receive password reset email', async () => {
+  // Arrange
+  const email = process.env.TEST_EMAIL;
+  const expectedSubject = 'Password Reset Request';
+  
+  // Act - Trigger email sending
+  await forgotPasswordPage.requestReset(email);
+  
+  // Assert - Verify email received
+  const messages = await getMessages(
+    './credentials.json',
+    './token.json',
+    { from: 'noreply@yourdomain.com', subject: expectedSubject },
+    10, // max wait time in seconds
+    1   // interval in seconds
+  );
+  
+  expect(messages.length).toBeGreaterThan(0);
+  expect(messages[0].subject).toContain(expectedSubject);
+});
+```
+
+### 2. MFA Testing Pattern
+```javascript
+// ✅ CORRECT - MFA OTP extraction
+test('should login with MFA OTP from email', async () => {
+  // Arrange
+  const email = process.env.TEST_EMAIL;
+  const password = process.env.TEST_PASSWORD;
+  
+  // Act - Login and trigger MFA
+  await loginPage.login(email, password);
+  await loginPage.triggerMFA();
+  
+  // Assert - Get OTP from email
+  const messages = await getMessages(
+    './credentials.json',
+    './token.json',
+    { from: 'noreply@yourdomain.com', subject: 'Your verification code' },
+    30, // max wait time
+    2   // interval
+  );
+  
+  const otp = extractOTPFromEmail(messages[0].body);
+  await loginPage.enterOTP(otp);
+  await expect(dashboardPage.welcomeMessage).toBeVisible();
+});
+```
+
+### 3. Email Content Validation
+```javascript
+// ✅ CORRECT - Email content verification
+test('should send email with correct content', async () => {
+  // Act
+  await userPage.sendWelcomeEmail(testUser.email);
+  
+  // Assert
+  const messages = await getMessages(
+    './credentials.json',
+    './token.json',
+    { to: testUser.email, subject: 'Welcome to Our Platform' },
+    15,
+    1
+  );
+  
+  const emailBody = messages[0].body;
+  expect(emailBody).toContain(testUser.name);
+  expect(emailBody).toContain('Welcome to our platform');
+  expect(emailBody).toMatch(/activation-link/);
+});
+```
+
+## 🔧 Helper Functions
+
+### OTP Extraction Utility
+```javascript
+// support/utilities/email-helpers.js
+const extractOTPFromEmail = (emailBody) => {
+  // Extract 6-digit OTP from email body
+  const otpMatch = emailBody.match(/\b\d{6}\b/);
+  return otpMatch ? otpMatch[0] : null;
+};
+
+const extractLinkFromEmail = (emailBody, linkText) => {
+  // Extract specific link from email body
+  const linkRegex = new RegExp(`<a[^>]*href="([^"]*)"[^>]*>${linkText}</a>`, 'i');
+  const match = emailBody.match(linkRegex);
+  return match ? match[1] : null;
+};
+```
+
+### Email Validation Utilities
+```javascript
+// support/utilities/email-validation.js
+const validateEmailContent = (message, expectedFields) => {
+  const body = message.body.toLowerCase();
+  const subject = message.subject.toLowerCase();
+  
+  expectedFields.forEach(field => {
+    if (field.type === 'subject') {
+      expect(subject).toContain(field.value.toLowerCase());
+    } else if (field.type === 'body') {
+      expect(body).toContain(field.value.toLowerCase());
+    }
+  });
+};
+```
+
+## 🚀 CI/CD Integration
+
+### GitHub Secrets Setup
+```bash
+# Convert credentials to base64 for GitHub Secrets
+base64 -i credentials.json    # → GMAIL_CREDENTIALS_BASE64
+base64 -i token.json          # → GMAIL_TOKEN_BASE64
+```
+
+### Workflow Configuration
+```yaml
+# .github/workflows/cypress.yml
+- name: Setup Gmail Credentials
+  run: |
+    echo "${{ secrets.GMAIL_CREDENTIALS_BASE64 }}" | base64 -d > credentials.json
+    echo "${{ secrets.GMAIL_TOKEN_BASE64 }}" | base64 -d > token.json
+```
+
+## 📊 Test Data Management
+
+### Email Test Fixtures
+```javascript
+// fixtures/email-templates.json
+{
+  "passwordReset": {
+    "subject": "Password Reset Request",
+    "from": "noreply@yourdomain.com",
+    "expectedContent": ["reset", "password", "link"]
+  },
+  "welcomeEmail": {
+    "subject": "Welcome to Our Platform",
+    "from": "welcome@yourdomain.com",
+    "expectedContent": ["welcome", "activation", "account"]
+  },
+  "mfaCode": {
+    "subject": "Your verification code",
+    "from": "security@yourdomain.com",
+    "otpPattern": "\\b\\d{6}\\b"
+  }
+}
+```
+
+## ⚠️ Common Issues & Solutions
+
+### 1. Token Expiration
+```javascript
+// ✅ Handle token refresh
+const refreshGmailToken = async () => {
+  try {
+    await getMessages('./credentials.json', './token.json', {}, 1, 1);
+  } catch (error) {
+    if (error.message.includes('invalid_grant')) {
+      console.log('Token expired. Please re-run initialization:');
+      console.log('node node_modules/gmail-tester/init.js credentials.json token.json your-email@domain.com');
+    }
+    throw error;
+  }
+};
+```
+
+### 2. Email Timing Issues
+```javascript
+// ✅ Proper wait strategies
+const waitForEmail = async (criteria, maxWait = 30) => {
+  const messages = await getMessages(
+    './credentials.json',
+    './token.json',
+    criteria,
+    maxWait,
+    2 // Check every 2 seconds
+  );
+  
+  if (messages.length === 0) {
+    throw new Error(`No email found matching criteria: ${JSON.stringify(criteria)}`);
+  }
+  
+  return messages[0];
+};
+```
+
+### 3. Multiple Email Handling
+```javascript
+// ✅ Handle multiple emails
+const getLatestEmail = async (criteria) => {
+  const messages = await getMessages(
+    './credentials.json',
+    './token.json',
+    criteria,
+    15,
+    1
+  );
+  
+  // Sort by date and return latest
+  return messages.sort((a, b) => new Date(b.date) - new Date(a.date))[0];
+};
+```
+
+## 🎯 Best Practices
+
+1. **Use descriptive test names** that indicate email testing
+2. **Set appropriate timeouts** for email delivery (15-30 seconds)
+3. **Clean up test emails** after verification
+4. **Use environment variables** for email addresses
+5. **Handle email failures gracefully** with proper error messages
+6. **Test email content thoroughly** including links and formatting
+7. **Use fixtures** for email template validation
+8. **Implement retry logic** for flaky email delivery
+
+## 📝 Test Tags
+
+Tag email-related tests for selective execution:
+```javascript
+test('should receive password reset email @email @smoke', async () => {
+  // Email test implementation
+});
+
+test('should login with MFA OTP @email @mfa', async () => {
+  // MFA test implementation
+});
+```
+
+Run email tests only:
+```bash
+npm run cy:run -- --grep "@email"
+```
+
+## 🔍 Debugging Tips
+
+1. **Check email delivery**: Verify emails are actually being sent
+2. **Validate credentials**: Ensure `credentials.json` and `token.json` are valid
+3. **Check Gmail API quotas**: Monitor API usage in Google Cloud Console
+4. **Use browser dev tools**: Check network requests for email triggers
+5. **Log email content**: Temporarily log email bodies for debugging
+6. **Test with different email providers**: Some providers have delivery delays
+
+---
+
+**Related Files:**
+- [README.md](mdc:README.md) - Main setup instructions
+- [cypress.config.js](mdc:cypress.config.js) - Test configuration
+- [.env.example](mdc:.env.example) - Environment variables template
+- [.gitignore](mdc:.gitignore) - Security exclusions
