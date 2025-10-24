@@ -2,12 +2,14 @@ import { test as base, Page } from '@playwright/test';
 import { LoginPage } from '@/pages/LoginPage';
 import { RegistrationPage } from '@/pages/RegistrationPage';
 import { UserApiClient } from '@/support/api-client/UserApiClient';
+import { MemberApiClient } from '@/support/api-client/MemberApiClient';
 import testData from '@/fixtures/test-data.json';
 
 type TestFixtures = {
   loginPage: LoginPage;
   registrationPage: RegistrationPage;
   userApi: UserApiClient;
+  memberApi: MemberApiClient;
   testData: typeof testData;
   authenticatedPage: Page;
 };
@@ -24,10 +26,15 @@ export const test = base.extend<TestFixtures>({
     await use(registrationPage);
   },
 
-  // API client fixture
+  // API client fixtures
   userApi: async ({ request }, use) => {
     const userApi = new UserApiClient(request);
     await use(userApi);
+  },
+
+  memberApi: async ({ request }, use) => {
+    const memberApi = new MemberApiClient(request);
+    await use(memberApi);
   },
 
   // Test data fixture

@@ -19,6 +19,7 @@ export class RegistrationPage extends BasePage {
   private confirmPasswordInput = () => this.page.locator('#pv_id_0_1_25');
   private signUpButton = () => this.page.getByRole('button', { name: 'Sign Up' });
   private freeTrialLabel = () => this.page.getByLabel('Free Trial');
+  private validationErrors = () => this.page.locator('.p-error');  // Assuming error messages have class 'p-error'
 
   // Actions
   async goto() {
@@ -71,5 +72,9 @@ export class RegistrationPage extends BasePage {
 
   async expectRegistrationSuccess() {
     await this.expectFreeTrialVisible();
+  }
+
+  getValidationErrors() {
+    return this.validationErrors();
   }
 }

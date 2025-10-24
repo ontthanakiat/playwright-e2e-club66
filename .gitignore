@@ -16,6 +16,9 @@ reports/
 screenshots/
 videos/
 
+# Authentication state
+playwright/.auth/
+
 # Credentials
 credentials.json
 token.json

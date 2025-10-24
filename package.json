@@ -10,6 +10,7 @@
     "test:smoke": "playwright test --grep @smoke",
     "test:api": "playwright test --project=api",
     "test:e2e": "playwright test tests/e2e",
+    "test:registration": "playwright test tests/e2e/registration.spec.ts",
     "test:visual": "playwright test --project=visual",
     "test:staging": "BASE_ENV=staging playwright test",
     "test:prod": "BASE_ENV=prod playwright test --grep @smoke",
